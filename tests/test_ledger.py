@@ -600,3 +600,41 @@ def test_independent_processes_serialize_competing_writes(ledger, intent, scenar
     winner = next(result[1] for result in results if result[0] == "ok")
     stored = ledger.get(winner)
     assert ledger.reservation("sim.resource", stored.intent.business_effect_key) == winner
+
+
+@pytest.mark.parametrize("store_kind", ["engine", "provider"])
+def test_unsupported_sqlite_version_denies_open(tmp_path, monkeypatch, store_kind):
+    from work_steward.simulator.store import ProviderStore
+
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", (3, 36, 0))
+    with pytest.raises(RuntimeError, match=r"3\.37"):
+        if store_kind == "engine":
+            Ledger(tmp_path / "engine.sqlite", organization_id="org-1")
+        else:
+            ProviderStore(tmp_path / "provider.sqlite")
+
+
+@pytest.mark.parametrize("store_kind", ["engine", "provider"])
+@pytest.mark.parametrize(
+    "blocked", ["PRAGMA journal_mode=WAL", "PRAGMA synchronous", "PRAGMA foreign_keys"]
+)
+def test_unavailable_durability_settings_deny_open(tmp_path, monkeypatch, store_kind, blocked):
+    from work_steward.simulator.store import ProviderStore
+
+    class RestrictedConnection(sqlite3.Connection):
+        def execute(self, sql, *arguments):
+            if sql == blocked:
+                return super().execute("SELECT 'unavailable'")
+            return super().execute(sql, *arguments)
+
+    connect = sqlite3.connect
+    monkeypatch.setattr(
+        sqlite3,
+        "connect",
+        lambda *args, **kwargs: connect(*args, **kwargs, factory=RestrictedConnection),
+    )
+    with pytest.raises(RuntimeError, match="unavailable"):
+        if store_kind == "engine":
+            Ledger(tmp_path / "engine.sqlite", organization_id="org-1")
+        else:
+            ProviderStore(tmp_path / "provider.sqlite")

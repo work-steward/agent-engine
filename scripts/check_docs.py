@@ -65,8 +65,8 @@ def check_links(root: Path, files: list[Path]) -> list[str]:
     return errors
 
 
-def main() -> int:
-    root = Path(__file__).resolve().parents[1]
+def main(root: Path | None = None) -> int:
+    root = root or Path(__file__).resolve().parents[1]
     git = shutil.which("git")
     if git is None:
         raise RuntimeError("Git is required to enumerate repository files")

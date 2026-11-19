@@ -11,6 +11,7 @@ __pycache__/
 .venv/
 node_modules/
 coverage/
+.coverage*
 dist/
 build/
 *.db

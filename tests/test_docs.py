@@ -59,3 +59,10 @@ def test_an_untracked_symlink_cannot_make_a_missing_repository_path_resolve(tmp_
     (tmp_path / "guide.md").write_text("# Guide\n")
     (tmp_path / "alias").symlink_to(tmp_path, target_is_directory=True)
     assert CHECK_DOCS.check_links(tmp_path, [Path("README.md"), Path("guide.md")])
+
+
+def test_non_utf8_markdown_is_rejected_without_reading_symlink_sources(tmp_path):
+    (tmp_path / "bad.md").write_bytes(b"\xff")
+    (tmp_path / "alias.md").symlink_to(tmp_path / "bad.md")
+    errors = CHECK_DOCS.check_links(tmp_path, [Path("bad.md"), Path("alias.md"), Path("gone.md")])
+    assert errors == ["bad.md: cannot read UTF-8 Markdown"]

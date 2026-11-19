@@ -75,6 +75,5 @@ SCHEMA = (
         BEGIN SELECT RAISE(ABORT,'retained state'); END""",
 )
 
-# Fixed SQL, with no caller-controlled table identifiers. These guards prevent accidental
-# rewriting through SQL; a privileged database editor is outside the supported threat model.
+# Fixed identifiers; triggers guard accidental edits, not a privileged database editor.
 IMMUTABLE_TABLES = ("ledger_meta", "operations", "reservations", "observations", "journal")

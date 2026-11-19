@@ -13,6 +13,9 @@ format:
 	uv run --frozen ruff format .
 
 test:
-	uv run --frozen pytest -q
+	uv run --frozen coverage erase
+	uv run --frozen coverage run -m pytest -q
+	uv run --frozen coverage combine -q
+	uv run --frozen coverage report
 
 check: lint test

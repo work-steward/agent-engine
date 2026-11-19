@@ -7,7 +7,7 @@ uv sync --frozen
 make check
 ```
 
-`make lint` runs repository-wide Ruff checks/formatting, Markdown and YAML linters, local-link validation, and file/workflow hygiene. `make test` runs pytest. `make format` applies safe Ruff fixes and formatting; inspect its diff before committing. CI runs the same targets.
+`make lint` checks Python, Markdown, YAML, links, and repository hygiene. `make test` runs pytest with a 98% combined statement/branch coverage gate, including threads and child processes. `make format` applies safe Ruff fixes and formatting; review its diff. CI uses the same targets.
 
 Rules live in [pyproject.toml](../pyproject.toml), [.pymarkdown.json](../.pymarkdown.json), and [.yamllint.yml](../.yamllint.yml). Python security exceptions are limited to test assertions and explicit synthetic subprocess launches. Markdown paragraph wrapping and a first-line H1 are optional so tables and GitHub template fragments remain practical. Local links are parsed as Markdown, must resolve to repository content with exact path casing, and cannot escape to private filesystem paths. External URLs are not fetched.
 
@@ -32,7 +32,7 @@ Use the existing tests as entry points for schema, transition, and provider chan
 
 ## Engine ledger
 
-`Ledger` is a Python storage API for synthetic, trusted model events. Supply an existing typed `Intent`; it does not accept model text as authority:
+`Ledger` stores trusted model events. Supply a typed `Intent`:
 
 ```python
 from pathlib import Path
@@ -45,8 +45,6 @@ action = ledger.apply(
 )
 ```
 
-Use `get(operation_id)`, `history(operation_id)`, and `reservation(namespace, business_key)` to inspect stored facts. Identical submissions return current state without resetting it or adding events. Changed intent, provider key, or capability profile conflicts; another operation cannot claim a reserved business key. Reservations have no expiry or release API.
+Inspect records with `get(operation_id)`, `history(operation_id)`, and `reservation(namespace, business_key)`. Identical submissions return current state; changed bindings conflict. Reservations have no release API.
 
-Use one organization per local database, separate from provider storage. The ledger requires STRICT tables, foreign keys, WAL, FULL synchronization, and bounded lock waits. Unknown application/schema versions and organization mismatches are rejected. This profile permits up to 64 attempts per operation to bound serialized repetition proofs; journal history can contain more events. History records transaction order and command input, not verified caller identity or tamper-proof audit evidence. Storage failures propagate without returning a successful command.
-
-[Ledger tests](../tests/test_ledger.py) use independent processes/connections and terminate writers before and after commit. They establish storage behavior under the stated filesystem assumptions, not power-loss durability or safe restoration of stale backups. Policy verification, real receipt admission, recovery scheduling, and effectful dispatch remain pending.
+Use one organization per local database, separate from provider storage. This profile bounds repetition proofs at 64 attempts; journal length is independent. History records command order and input, not verified caller identity. [Ledger tests](../tests/test_ledger.py) cover concurrency and process crashes; [storage assumptions](decisions/0001-python-sqlite-proof.md) and the [remaining execution gates](conformance.md) bound the guarantees.

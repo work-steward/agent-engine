@@ -1,9 +1,4 @@
-"""Durable storage for trusted reference-model commands, not a policy or send authority.
-
-There is deliberately no arbitrary snapshot writer, reservation release, or transport.
-Model authority facts and observations still require trusted callers; real policy and
-provider-proof admission must be implemented before effectful execution is supported.
-"""
+"""Durable reference commands; authority, evidence, and transport remain caller obligations."""
 
 import sqlite3
 from contextlib import contextmanager
@@ -326,11 +321,7 @@ class Ledger:
         command: Command,
         **arguments,
     ) -> Action:
-        """Serialize one closed model command; inputs are trusted facts, not verified authority.
-
-        SEND_POSSIBLE persists model state only. Its return value is not permission to
-        invoke transport, and loading a previously recorded boundary never grants a send.
-        """
+        """Commit a trusted model command. SEND_POSSIBLE grants no transport authority."""
         text(operation_id, "operation_id")
         integer(expected_version, "expected_version")
         if type(command) is not Command:

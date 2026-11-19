@@ -16,15 +16,15 @@ The identifiers below are stable references for tests, changes, and incident rep
 | ID | Required behavior | Evidence or remaining enforcement |
 | --- | --- | --- |
 | AC-01 | Commit immutable intent, attempt, and send boundary before any effectful transmission. | Ledger storage exists; exact request binding and dispatcher pending |
-| AC-02 | An operation identity cannot bind different material intent. | `test_ac02_identical_submission_returns_current_state_without_a_new_event` and `test_operation_identity_cannot_bind_changed_intent` in ledger tests |
+| AC-02 | An operation identity cannot bind different material intent. | Ledger binding and concurrent-submission tests |
 | AC-03 | Exact dispatch realizes the approved intent, account, destination, and adapter. | Trusted request mapping and independent validation |
 | AC-04 | Current policy/evidence at serialized admission; earlier revocation wins. | Authoritative policy transaction |
 | AC-05 | Unknown prior outcome without safe-repetition evidence blocks another send. | Production proof admission and retry controller |
 | AC-06 | Typed evidence must support the required predicate; conflicting final claims escalate. | Provider receipt verifier |
 | AC-07 | Stale workers cannot overwrite state; trustworthy late observations remain attributable. | Ledger versions/generations persist; worker runtime and trusted observation admission pending |
 | AC-08 | Cancellation stops future authority and preserves prior effects/uncertainty. | Recovery and dispatch integration |
-| AC-09 | Business-effect uniqueness survives cancellation, restart, and uncertainty. | `test_ac09_reservation_survives_lifecycle_and_restart` and concurrent writer tests, within one surviving authoritative ledger |
-| AC-10 | Material state changes and their journal events commit atomically. | `test_ac10_sql_failure_rolls_back_every_part_of_the_command` and real-process commit-boundary tests cover stored model commands |
+| AC-09 | Business-effect uniqueness survives cancellation, restart, and uncertainty. | Ledger reservation, restart, and concurrency tests; one surviving authoritative database |
+| AC-10 | Material state changes and their journal events commit atomically. | Ledger storage-failure and real-process commit-boundary tests |
 | AC-11 | Mandatory destination-atomic conditions cannot be replaced by a local recheck. | Connector eligibility and dispatch enforcement |
 | AC-12 | Supported proposal paths expose no privileged secret or unmediated effect channel. | Runtime mediation; arbitrary-code isolation remains deferred |
 
