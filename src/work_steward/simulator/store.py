@@ -6,7 +6,14 @@ from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
 
-from ..canonical import ValidationError, canonical_bytes, closed_object, integer, text
+from ..canonical import (
+    CanonicalSizeError,
+    ValidationError,
+    canonical_bytes,
+    closed_object,
+    integer,
+    text,
+)
 from ..model import Idempotency
 
 
@@ -234,13 +241,24 @@ class ProviderStore:
             ]
         if self.behavior is Behavior.DUPLICATE_STATUS:
             records = records + records
-        return {
+        result = {
             "account": account,
             "operation_id": operation_id,
             "records": records,
             "final_absence": False,
             "truncated": truncated,
         }
+        while True:
+            try:
+                canonical_bytes(result)
+                return result
+            except CanonicalSizeError:
+                # Character and record limits alone do not bound UTF-8 response bytes.
+                # Keep a prefix and disclose the omitted evidence without mutating storage.
+                if not records:
+                    raise
+                records.pop()
+                result["truncated"] = True
 
     def advance_clock(self, ticks: int) -> None:
         """Test harness control. Deliberately not exposed by the HTTP protocol."""

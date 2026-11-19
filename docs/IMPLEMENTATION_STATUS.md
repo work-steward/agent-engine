@@ -12,7 +12,9 @@ This slice implements strict intent serialization, an immutable in-memory action
 | Independent destination | [Provider store](../src/work_steward/simulator/store.py), [HTTP server](../src/work_steward/simulator/server.py) | [Simulator tests](../tests/test_simulator.py): separate processes, provider SIGKILL/restart, lost response plus client termination, concurrent permanent-key deduplication, key parameter/account scope, finite retention expiry, and an old sender released after an absent lookup. |
 | Provider-side C2 | Atomic resource-version check and effect transaction | Two concurrent operations against version 0 yield one effect and one definitive rejection; pending requests evaluate their condition when they actually apply. This demonstrates the simulator's behavior only. |
 
-Local validation on macOS arm64 used CPython 3.13.18 and SQLite 3.53.1: **82 tests passed**, Ruff lint and formatting passed. Python is pinned in `.python-version`; runtime/test dependencies and distribution hashes are recorded in `uv.lock`. CI runs the locked suite on an Ubuntu GitHub-hosted runner. A passing run is recorded on the implementation PR; no cross-platform or production claim follows from local results alone.
+Local validation on macOS arm64 used CPython 3.13.18 and SQLite 3.53.1: **98 tests passed**, Ruff lint and formatting passed. Python is pinned in `.python-version`; runtime/test dependencies and distribution hashes are recorded in `uv.lock`. CI runs the locked suite on an Ubuntu GitHub-hosted runner. A passing run is recorded on the implementation PR; no cross-platform or production claim follows from local results alone.
+
+The suite includes 16 regression/control cases for cross-attempt provider-record contradictions, preservation of safe retries during nonterminal polling, strict query UTF-8 identity, and encoded lookup response budgets. Eleven of these cases failed against the original implementation; controls verify that distinct records remain independent, terminal evidence still fences retries, stale versions still fail, valid replacement-character identifiers remain supported, and byte-bounded truncation does not alter provider effects.
 
 ## Important boundaries
 
@@ -22,7 +24,7 @@ Local validation on macOS arm64 used CPython 3.13.18 and SQLite 3.53.1: **82 tes
 - The HTTP provider exposes only synthetic POST and read-only lookup methods. Clock advancement and pending-request release are harness-only Python controls. The oracle reads the provider database out of band; no model reducer imports the provider or accesses that oracle.
 - Typed observations represent claims already admitted by a future verifier. The slice does not yet validate actual provider receipts into engine evidence. A simulator's contradictory-status behavior deliberately emits false final evidence for later controller testing.
 - The permanent-key reference witness is deliberately narrow. Intrinsic idempotence, finite retention with provider-enforced arrival deadlines, and real-provider proof admission remain unsupported. Unknown finite-retention cases are denied.
-- Lookup returns at most 16 records (32 when deliberately duplicating status), with a `truncated` flag and `final_absence=false`. A missing/truncated lookup is never proof of complete history or future non-execution.
+- Lookup returns at most 16 records (32 when deliberately duplicating status), and fewer if required by the canonical UTF-8 byte budget, with a `truncated` flag and `final_absence=false`. A missing/truncated lookup is never proof of complete history or future non-execution.
 - One observation may confirm an intended effect while another attempt remains uncertain. The model retains the positive claim and ongoing reconciliation. Distinct additional provider-effect IDs produce a conflict.
 
 ## Next implementation slice

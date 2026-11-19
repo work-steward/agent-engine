@@ -259,6 +259,78 @@ def test_restored_model_snapshot_cannot_drop_repetition_coverage(intent):
         action.stop(close="yes")
 
 
+@pytest.mark.parametrize("first,second", [(E.NO_EFFECT, E.CONFIRMED), (E.CONFIRMED, E.NO_EFFECT)])
+@pytest.mark.parametrize("same_record", [True, False])
+def test_cross_attempt_final_claims_are_compared_by_provider_record(
+    intent, first, second, same_record
+):
+    action = sent(
+        admitted(Action(intent, "key", idempotency=Idempotency.PERMANENT).evaluate())
+    ).takeover()
+    action = sent(admitted(action, "a2", proof(action)), "a2")
+    observations = (
+        Observation("claim-1", "a1", intent.intent_digest, first, "record-1"),
+        Observation(
+            "claim-2", "a2", intent.intent_digest, second, "record-1" if same_record else "record-2"
+        ),
+    )
+    for observation in observations:
+        action = action.observe(observation, expected_version=action.version)
+    assert action.observations == observations
+    assert action.effect is (E.CONFLICTING if same_record else E.CONFIRMED)
+    assert action.reconciliation is (R.HUMAN if same_record else R.IDLE)
+
+
+@pytest.mark.parametrize("assessment", [E.UNKNOWN, E.PENDING, E.NO_EFFECT])
+def test_nonterminal_observations_preserve_a_safely_admitted_retry(intent, assessment):
+    action = sent(
+        admitted(Action(intent, "key", idempotency=Idempotency.PERMANENT).evaluate())
+    ).takeover()
+    if assessment is E.PENDING:
+        action = observe(action, E.PENDING, observation="initial-pending")
+    action = admitted(action, "a2", proof(action))
+    previous_version, generation = action.version, action.generation
+    action = observe(action, assessment, observation="late-poll")
+    assert action.disposition is D.ADMITTED
+    assert action.effect is (E.NO_EFFECT if assessment is E.NO_EFFECT else E.UNKNOWN)
+    assert action.reconciliation is R.IDLE
+    assert action.generation == generation and len(action.attempts) == 2
+    assert action.attempts[-1].phase is Phase.ADMITTED
+    # The observation changes state version; a worker still needs a current snapshot.
+    with pytest.raises(TransitionError):
+        action.cross_send_boundary("a2", expected_version=previous_version, generation=generation)
+    assert sent(action, "a2").attempts[-1].phase is Phase.POSSIBLY_SENT
+
+
+def test_status_polling_does_not_exhaust_retry_budget_before_transmission(intent):
+    action = sent(
+        admitted(
+            Action(intent, "key", idempotency=Idempotency.PERMANENT, max_attempts=2).evaluate()
+        )
+    ).takeover()
+    action = admitted(action, "a2", proof(action))
+    for number in range(6):
+        action = observe(action, E.UNKNOWN, observation=f"poll-{number}")
+        assert action.attempts[-1].phase is Phase.ADMITTED
+        assert len(action.attempts) == 2
+    assert sent(action, "a2").attempts[-1].phase is Phase.POSSIBLY_SENT
+
+
+@pytest.mark.parametrize("assessment", [E.CONFIRMED, E.CONFLICTING])
+def test_terminal_observations_still_fence_an_unsent_retry(intent, assessment):
+    action = sent(
+        admitted(Action(intent, "key", idempotency=Idempotency.PERMANENT).evaluate())
+    ).takeover()
+    action = admitted(action, "a2", proof(action))
+    action = observe(action, assessment, observation="terminal")
+    assert action.attempts[-1].phase is Phase.UNSENT
+    assert action.disposition is not D.ADMITTED
+    assert action.effect is assessment
+    assert action.reconciliation is (R.HUMAN if assessment is E.CONFLICTING else R.IDLE)
+    with pytest.raises(TransitionError):
+        sent(action, "a2")
+
+
 class LifecycleMachine(RuleBasedStateMachine):
     @initialize(profile=st.sampled_from(list(Idempotency)))
     def start(self, profile):

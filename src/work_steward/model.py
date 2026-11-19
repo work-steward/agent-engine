@@ -108,7 +108,7 @@ class Observation:
         text(self.attempt_id, "attempt_id")
         if type(self.assessment) is not Effect or self.assessment is Effect.NOT_ATTEMPTED:
             raise ValidationError("Unsupported observation assessment")
-        if self.assessment is Effect.CONFIRMED:
+        if self.provider_effect_id is not None or self.assessment is Effect.CONFIRMED:
             text(self.provider_effect_id, "provider_effect_id")
 
 
@@ -366,10 +366,21 @@ class Action:
         extra_effect = incoming is Effect.CONFIRMED and bool(
             prior_effects - {observation.provider_effect_id}
         )
+        provider_record_conflict = (
+            incoming in finals
+            and observation.provider_effect_id is not None
+            and any(
+                o.provider_effect_id == observation.provider_effect_id
+                and o.assessment in finals
+                and o.assessment is not incoming
+                for o in self.observations
+            )
+        )
         if (
             (
                 incoming is Effect.CONFLICTING
                 or extra_effect
+                or provider_record_conflict
                 or any(o.observation_id == observation.observation_id for o in self.observations)
             )
             or (previous in finals and incoming in finals and previous != incoming)
@@ -398,9 +409,21 @@ class Action:
             r = Reconciliation.SCHEDULED
         else:
             e, r = Effect.NO_EFFECT, Reconciliation.IDLE
-        attempts = tuple(
-            replace(a, phase=Phase.UNSENT) if a.phase is Phase.ADMITTED else a for a in attempts
+        keep_admitted_retry = (
+            any(a.phase is Phase.ADMITTED for a in attempts)
+            and self._eligible()
+            and e not in (Effect.CONFIRMED, Effect.CONFLICTING)
         )
+        if keep_admitted_retry:
+            # An old nonterminal observation does not invalidate permanent-key coverage.
+            # Its version still changes, so the worker must re-read before crossing the boundary.
+            d, r = Disposition.ADMITTED, Reconciliation.IDLE
+            if e is Effect.PENDING:
+                e = Effect.UNKNOWN  # Same projection used when the retry was admitted.
+        else:
+            attempts = tuple(
+                replace(a, phase=Phase.UNSENT) if a.phase is Phase.ADMITTED else a for a in attempts
+            )
         return self._change(
             attempts=attempts,
             observations=self.observations + (observation,),

@@ -14,6 +14,10 @@ class ValidationError(ValueError):
     """Input is outside the supported closed schema or canonicalization profile."""
 
 
+class CanonicalSizeError(ValidationError):
+    """A valid canonical value exceeds the profile's encoded byte budget."""
+
+
 def integer(value: object, name: str, *, minimum: int = 0) -> int:
     if type(value) is not int or not minimum <= value <= MAX_INTEGER:
         raise ValidationError(f"{name} must be an exact integer in [{minimum}, {MAX_INTEGER}]")
@@ -97,7 +101,7 @@ def canonical_bytes(value: object) -> bytes:
     except rfc8785.CanonicalizationError as exc:
         raise ValidationError("Cannot canonicalize value") from exc
     if len(result) > MAX_INPUT_BYTES:
-        raise ValidationError("Canonical JSON exceeds the byte limit")
+        raise CanonicalSizeError("Canonical JSON exceeds the byte limit")
     return result
 
 

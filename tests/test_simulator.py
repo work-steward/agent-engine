@@ -4,13 +4,14 @@ import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection, RemoteDisconnected
+from urllib.parse import urlencode
 
 import pytest
 from conftest import read_line
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from work_steward.canonical import MAX_INTEGER
+from work_steward.canonical import MAX_INPUT_BYTES, MAX_INTEGER, canonical_bytes
 from work_steward.model import (
     Action,
     Disposition,
@@ -269,6 +270,49 @@ def test_bounded_lookup_does_not_claim_complete_history(provider):
         result = p.lookup()[1]
         assert len(result["records"]) == 16 and result["truncated"] is True
         assert result["final_absence"] is False
+
+
+@pytest.mark.parametrize("field", ["account", "operation_id"])
+@pytest.mark.parametrize("invalid_utf8", ["%FF", "%C3%28"])
+def test_lookup_utf8_is_strict_without_rejecting_valid_replacement_characters(
+    provider, field, invalid_utf8
+):
+    with provider() as p:
+        assert p.submit(account="\ufffd", operation_id="\ufffd")[0] == 200
+        status, valid = p.lookup(account="\ufffd", operation_id="\ufffd")
+        assert status == 200 and len(valid["records"]) == 1
+        query = urlencode({"account": "\ufffd", "operation_id": "\ufffd"})
+        query = query.replace(f"{field}=%EF%BF%BD", f"{field}={invalid_utf8}")
+        status, invalid = p.request("GET", "/v1/effects?" + query)
+        assert status == 400
+        assert invalid == {"error": "invalid_request"}
+        assert p.oracle() == (1, 1)
+
+
+@pytest.mark.parametrize("behavior", ["apply", "duplicate_status"])
+def test_lookup_encoded_byte_budget_handles_maximum_unicode_identifiers(provider, behavior):
+    identifier = "😀" * 128
+    with provider(behavior=behavior) as p:
+        record_ids = set()
+        for number in range(16):
+            status, record = p.submit(
+                account=identifier,
+                operation_id=identifier,
+                resource=identifier,
+                attempt="é" * 128,
+                key=f"unicode-key-{number}",
+            )
+            assert status == 200
+            record_ids.add(record["provider_effect_id"])
+        status, result = p.lookup(account=identifier, operation_id=identifier)
+        assert status == 200
+        assert 0 < len(result["records"]) <= 32
+        assert len(canonical_bytes(result)) <= MAX_INPUT_BYTES
+        assert {r["provider_effect_id"] for r in result["records"]} <= record_ids
+        assert result["truncated"] is (behavior == "duplicate_status")
+        assert result["final_absence"] is False
+        assert p.lookup(account=identifier, operation_id=identifier)[1] == result
+        assert p.oracle() == (16, 16)
 
 
 def test_persisted_profile_cannot_silently_change(tmp_path):

@@ -81,7 +81,12 @@ class ProviderHandler(BaseHTTPRequestHandler):
         if self.headers.get("Content-Length", "0") != "0":
             raise ValidationError("Lookup body unsupported")
         query = parse_qs(
-            parsed.query, keep_blank_values=True, strict_parsing=True, max_num_fields=2
+            parsed.query,
+            keep_blank_values=True,
+            strict_parsing=True,
+            max_num_fields=2,
+            encoding="utf-8",
+            errors="strict",
         )
         if set(query) != {"account", "operation_id"} or any(len(v) != 1 for v in query.values()):
             raise ValidationError("Unsupported lookup query")
