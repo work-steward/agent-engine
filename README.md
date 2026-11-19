@@ -11,6 +11,7 @@ The first milestone is a small execution kernel with a deterministic external-sy
 ## Start here
 
 - [Architecture baseline and 100 product decisions](docs/ARCHITECTURE_HANDOFF.md)
+- [Kernel-proof design review](docs/KERNEL_PROOF_DESIGN.md), [threat model](docs/threat-model.md), and [conformance obligations](docs/conformance.md)
 - [Implementation roadmap](docs/ROADMAP.md)
 - [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md), and [security](SECURITY.md)
 - [Repository protection and public-release checklist](docs/REPOSITORY_SECURITY.md)
@@ -19,7 +20,7 @@ AI proposes; trusted execution authority decides. Unknown external outcomes rema
 
 ## Repository checks
 
-Run `python3 scripts/check_repository.py` and `git diff --check`. Python is used only for bootstrap checks; the engine language and storage technology remain undecided.
+Run `python3 scripts/check_repository.py` and `git diff --check`. The proposed kernel proof uses Python and SQLite; no runtime dependencies or engine implementation have been added. Bootstrap checks do not demonstrate execution invariants.
 
 ## License
 
