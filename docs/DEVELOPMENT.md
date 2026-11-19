@@ -48,3 +48,9 @@ action = ledger.apply(
 Inspect records with `get(operation_id)`, `history(operation_id)`, and `reservation(namespace, business_key)`. Identical submissions return current state; changed bindings conflict. Reservations have no release API.
 
 Use one organization per local database, separate from provider storage. This profile bounds repetition proofs at 64 attempts; journal length is independent. History records command order and input, not verified caller identity. [Ledger tests](../tests/test_ledger.py) cover concurrency and process crashes; [storage assumptions](decisions/0001-python-sqlite-proof.md) and the [remaining execution gates](conformance.md) bound the guarantees.
+
+## Governed operations
+
+Create `Authority(path, organization_id=..., administrators=frozenset({...}))` for a separate governed database. Host code must authenticate actors before calling `configure`, `record_evidence`, `approve`, or `revoke`. Submit through `authority.ledger.submit`; use current versions and generations for `admit` and `mark_send_possible`. Reference `Ledger.apply` is disabled, and no method sends a request.
+
+V1 reference databases upgrade atomically on reopen, preserving data and reference mode. Model authority never becomes a governed approval. See the [authority tests](../tests/test_authority.py) for boundary cases.

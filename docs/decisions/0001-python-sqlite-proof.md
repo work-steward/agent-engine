@@ -8,7 +8,7 @@ Use Python for the reference model and property tests, and SQLite on a local fil
 
 Require STRICT tables, foreign keys, WAL, FULL synchronization, and bounded lock waits. Engine admission, revocation, fencing, reservations, and state/journal updates must serialize through short write transactions with current predicates and conditional version checks. Commit remote-I/O prerequisites first; never hold a database transaction across HTTP. Checkpoints cannot override newer authoritative records.
 
-Bind an engine database to one organization, an application identifier, and a schema version; reject unsupported formats rather than silently adopting or migrating them. Persist only closed model commands, not caller-supplied replacement snapshots. Model authority/evidence inputs remain trusted until policy and receipt admission are implemented.
+Bind an engine database to one organization, mode, application identifier, and schema version. Upgrade known v1 reference databases atomically to v2; reject unknown formats and conversion into governed mode. Persist closed commands, not replacement snapshots. [Governed admission](0007-local-authority.md) uses durable policy; provider-proof admission remains pending.
 
 ## Rationale and consequences
 

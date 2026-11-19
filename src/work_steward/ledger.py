@@ -1,4 +1,4 @@
-"""Durable reference commands; authority, evidence, and transport remain caller obligations."""
+"""SQLite operations, retained reservations, and atomic journal commits."""
 
 import sqlite3
 from contextlib import contextmanager
@@ -8,7 +8,14 @@ from pathlib import Path
 
 from .canonical import ValidationError, canonical_bytes, integer, parse_json, text
 from .intent import Consistency, Intent
-from .ledger_schema import APPLICATION_ID, IMMUTABLE_TABLES, SCHEMA, SCHEMA_VERSION
+from .ledger_schema import (
+    APPLICATION_ID,
+    AUTHORITY_IMMUTABLE,
+    AUTHORITY_SCHEMA,
+    IMMUTABLE_TABLES,
+    SCHEMA,
+    SCHEMA_VERSION,
+)
 from .model import (
     Action,
     Attempt,
@@ -46,6 +53,11 @@ class Command(StrEnum):
     BEGIN_RECONCILIATION = "begin_reconciliation"
 
 
+class LedgerMode(StrEnum):
+    REFERENCE = "reference"
+    GOVERNED = "governed"
+
+
 @dataclass(frozen=True)
 class JournalEntry:
     sequence: int
@@ -74,14 +86,24 @@ def _command_data(arguments: dict) -> bytes:
 
 
 class Ledger:
-    def __init__(self, path: Path, *, organization_id: str, busy_timeout_ms: int = 2000):
+    def __init__(
+        self,
+        path: Path,
+        *,
+        organization_id: str,
+        busy_timeout_ms: int = 2000,
+        mode: LedgerMode = LedgerMode.REFERENCE,
+    ):
         text(organization_id, "organization_id")
         integer(busy_timeout_ms, "busy_timeout_ms", minimum=1)
+        if type(mode) is not LedgerMode:
+            raise ValidationError("Use a supported ledger mode")
         if busy_timeout_ms > 60_000 or str(path) == ":memory:":
             raise ValidationError("Use a local database file and a bounded lock timeout")
         self.path = Path(path).resolve()
         self.organization_id = organization_id
         self.busy_timeout_ms = busy_timeout_ms
+        self.mode = mode
         with self._transaction(write=True, initialize=True):
             pass
 
@@ -93,7 +115,7 @@ class Ledger:
         db.row_factory = sqlite3.Row
         try:
             # Reject an unrelated database before changing its persistent journal mode.
-            self._check_application(db, allow_empty=initialize)
+            self._check_application(db, allow_empty=initialize, allow_legacy=initialize)
             db.execute("PRAGMA foreign_keys=ON")
             mode = db.execute("PRAGMA journal_mode=WAL").fetchone()[0]
             db.execute("PRAGMA synchronous=FULL")
@@ -116,26 +138,48 @@ class Ledger:
             db.close()
 
     def _initialize(self, db: sqlite3.Connection) -> None:
-        self._check_application(db, allow_empty=True)
+        self._check_application(db, allow_empty=True, allow_legacy=True)
         application = db.execute("PRAGMA application_id").fetchone()[0]
-        if application == 0:
-            for sql in SCHEMA:
+        version = db.execute("PRAGMA user_version").fetchone()[0]
+        if application == APPLICATION_ID and version == 1:
+            if self.mode is not LedgerMode.REFERENCE:
+                raise LedgerFormatError("Reference databases cannot become governed databases")
+            db.execute(
+                "ALTER TABLE ledger_meta ADD COLUMN mode TEXT NOT NULL DEFAULT 'reference' "
+                "CHECK(mode IN ('reference','governed'))"
+            )
+            for sql in AUTHORITY_SCHEMA:
                 db.execute(sql)
-            for table in IMMUTABLE_TABLES:
-                for event in ("UPDATE", "DELETE"):
-                    db.execute(
-                        f"CREATE TRIGGER retain_{table}_{event} BEFORE {event} ON {table} "
-                        "BEGIN SELECT RAISE(ABORT,'immutable ledger record'); END"
-                    )
-            db.execute("INSERT INTO ledger_meta VALUES (1,?)", (self.organization_id,))
+            self._retain(db, AUTHORITY_IMMUTABLE)
+            db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+        if application == 0:
+            for sql in (*SCHEMA, *AUTHORITY_SCHEMA):
+                db.execute(sql)
+            self._retain(db, (*IMMUTABLE_TABLES, *AUTHORITY_IMMUTABLE))
+            db.execute(
+                "INSERT INTO ledger_meta VALUES (1,?,?)", (self.organization_id, self.mode.value)
+            )
             db.execute(f"PRAGMA application_id={APPLICATION_ID}")
             db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
 
     @staticmethod
-    def _check_application(db: sqlite3.Connection, *, allow_empty: bool = False) -> None:
+    def _retain(db: sqlite3.Connection, tables: tuple[str, ...]) -> None:
+        for table in tables:
+            for event in ("UPDATE", "DELETE"):
+                db.execute(
+                    f"CREATE TRIGGER retain_{table}_{event} BEFORE {event} ON {table} "
+                    "BEGIN SELECT RAISE(ABORT,'immutable ledger record'); END"
+                )
+
+    @staticmethod
+    def _check_application(
+        db: sqlite3.Connection, *, allow_empty: bool = False, allow_legacy: bool = False
+    ) -> None:
         application = db.execute("PRAGMA application_id").fetchone()[0]
         version = db.execute("PRAGMA user_version").fetchone()[0]
         if (application, version) == (APPLICATION_ID, SCHEMA_VERSION):
+            return
+        if allow_legacy and (application, version) == (APPLICATION_ID, 1):
             return
         if (
             allow_empty
@@ -147,9 +191,11 @@ class Ledger:
 
     def _check_database(self, db: sqlite3.Connection) -> None:
         self._check_application(db)
-        row = db.execute("SELECT organization_id FROM ledger_meta WHERE singleton=1").fetchone()
-        if row is None or row[0] != self.organization_id:
-            raise LedgerFormatError("Ledger belongs to another organization")
+        row = db.execute(
+            "SELECT organization_id,mode FROM ledger_meta WHERE singleton=1"
+        ).fetchone()
+        if row is None or row[0] != self.organization_id or row[1] != self.mode.value:
+            raise LedgerFormatError("Ledger belongs to another organization or mode")
 
     def submit(
         self,
@@ -169,6 +215,8 @@ class Ledger:
             idempotency=idempotency,
             supported_consistency=supported_consistency,
             max_attempts=max_attempts,
+            authorized=self.mode is LedgerMode.REFERENCE,
+            evidence_valid=self.mode is LedgerMode.REFERENCE,
         )
         if max_attempts > 64:
             raise ValidationError("This ledger profile supports at most 64 attempts")
@@ -322,6 +370,8 @@ class Ledger:
         **arguments,
     ) -> Action:
         """Commit a trusted model command. SEND_POSSIBLE grants no transport authority."""
+        if self.mode is LedgerMode.GOVERNED:
+            raise TransitionError("Governed commands require the authority controller")
         text(operation_id, "operation_id")
         integer(expected_version, "expected_version")
         if type(command) is not Command:
