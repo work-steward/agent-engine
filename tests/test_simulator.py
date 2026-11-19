@@ -1,9 +1,11 @@
 import json
+import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from http.client import HTTPConnection, RemoteDisconnected
+from http.client import HTTPConnection, HTTPResponse, RemoteDisconnected
 from urllib.parse import urlencode
 
 import pytest
@@ -375,3 +377,73 @@ def test_simulator_refuses_non_loopback_binding(tmp_path):
     with pytest.raises(ValueError):
         # Negative test: the simulator must reject all-interface binding.
         ProviderServer(("0.0.0.0", 0), ProviderStore(tmp_path / "provider.sqlite"))  # noqa: S104
+
+
+@pytest.mark.parametrize(
+    "method,path,body,headers",
+    [
+        ("GET", "http://example.com/v1/effects", None, {}),
+        ("GET", "/v1/effects?account=a", None, {}),
+        ("GET", "/v1/effects?account=a&operation_id=x", b"x", {}),
+        ("GET", "/v1/effects?account=a&operation_id=x", None, {"Host": "other"}),
+        ("POST", "/v1/effects?override=x", b"{}", {"Content-Type": "application/json"}),
+        ("POST", "/v1/effects", b"{}", {"Content-Type": "text/plain"}),
+        ("POST", "/v1/effects", b"{}", {"Content-Type": "application/json", "Content-Length": "0"}),
+    ],
+)
+def test_protocol_rejects_material_overrides_and_invalid_framing(
+    provider, method, path, body, headers
+):
+    with provider() as p:
+        assert p.request(method, path, body=body, headers=headers)[0] == 400
+        assert p.oracle() == (0, 0)
+
+
+def test_truncated_request_is_rejected_without_an_effect(provider):
+    with provider() as p, socket.create_connection((p.host, p.port), timeout=3) as connection:
+        connection.sendall(
+            (
+                f"POST /v1/effects HTTP/1.1\r\nHost: {p.host}:{p.port}\r\n"
+                "Content-Type: application/json\r\nContent-Length: 10\r\n\r\n{}"
+            ).encode()
+        )
+        connection.shutdown(socket.SHUT_WR)
+        response = HTTPResponse(connection)
+        response.begin()
+        assert response.status == 400
+        response.read()
+        response.close()
+        assert p.oracle() == (0, 0)
+
+
+def test_provider_storage_failure_returns_503_and_rolls_back_effects(provider):
+    with provider() as p:
+        with sqlite3.connect(p.database) as db:
+            db.execute("DROP TABLE effects")
+        assert p.submit()[0] == 503
+        assert p.lookup()[0] == 503
+        with sqlite3.connect(p.database) as db:
+            assert db.execute("SELECT count(*) FROM resources").fetchone()[0] == 0
+
+
+def test_provider_rejects_invalid_profile_and_quantity_overflow(tmp_path):
+    from work_steward.canonical import ValidationError
+
+    path = tmp_path / "provider.sqlite"
+    with pytest.raises(ValidationError):
+        ProviderStore(path, idempotency="permanent")
+    store = ProviderStore(path)
+    body = {
+        "operation_id": "op",
+        "account": "a",
+        "resource": "r",
+        "quantity": MAX_INTEGER,
+        "resource_version": None,
+    }
+    assert store.submit(body, attempt_id="a1", provider_key="key1")["outcome"] == "effect_confirmed"
+    assert (
+        store.submit(body, attempt_id="a2", provider_key="key2")["outcome"] == "no_effect_confirmed"
+    )
+    unkeyed = ProviderStore(tmp_path / "unkeyed.sqlite", idempotency=Idempotency.NONE)
+    with pytest.raises(ValidationError):
+        unkeyed.submit(body, attempt_id="a1", provider_key="unexpected")

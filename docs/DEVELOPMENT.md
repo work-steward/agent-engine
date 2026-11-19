@@ -7,7 +7,7 @@ uv sync --frozen
 make check
 ```
 
-`make lint` runs repository-wide Ruff checks/formatting, Markdown and YAML linters, local-link validation, and file/workflow hygiene. `make test` runs pytest. `make format` applies safe Ruff fixes and formatting; inspect its diff before committing. CI runs the same targets.
+`make lint` checks Python, Markdown, YAML, links, and repository hygiene. `make test` runs pytest with a 98% combined statement/branch coverage gate, including threads and child processes. `make format` applies safe Ruff fixes and formatting; review its diff. CI uses the same targets.
 
 Rules live in [pyproject.toml](../pyproject.toml), [.pymarkdown.json](../.pymarkdown.json), and [.yamllint.yml](../.yamllint.yml). Python security exceptions are limited to test assertions and explicit synthetic subprocess launches. Markdown paragraph wrapping and a first-line H1 are optional so tables and GitHub template fragments remain practical. Local links are parsed as Markdown, must resolve to repository content with exact path casing, and cannot escape to private filesystem paths. External URLs are not fetched.
 
@@ -29,3 +29,22 @@ Finite retention uses a logical clock. The harness invokes `ProviderStore.advanc
 ## Adding coverage
 
 Use the existing tests as entry points for schema, transition, and provider changes. Subprocess readiness and ordering use explicit barriers instead of sleeps. Hypothesis supplies shrinking/replayable command traces. Preserve the [failure boundary](threat-model.md) when adding cases; provider/client termination is not an engine-ledger crash test.
+
+## Engine ledger
+
+`Ledger` stores trusted model events. Supply a typed `Intent`:
+
+```python
+from pathlib import Path
+from work_steward.ledger import Command, Ledger
+
+ledger = Ledger(Path(".scratch/engine.sqlite"), organization_id=intent.organization_id)
+action = ledger.submit(intent, provider_key="stable-synthetic-key")
+action = ledger.apply(
+    intent.operation_id, expected_version=action.version, command=Command.EVALUATE
+)
+```
+
+Inspect records with `get(operation_id)`, `history(operation_id)`, and `reservation(namespace, business_key)`. Identical submissions return current state; changed bindings conflict. Reservations have no release API.
+
+Use one organization per local database, separate from provider storage. This profile bounds repetition proofs at 64 attempts; journal length is independent. History records command order and input, not verified caller identity. [Ledger tests](../tests/test_ledger.py) cover concurrency and process crashes; [storage assumptions](decisions/0001-python-sqlite-proof.md) and the [remaining execution gates](conformance.md) bound the guarantees.

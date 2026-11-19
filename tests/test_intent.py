@@ -148,3 +148,32 @@ def test_property_canonical_order_is_independent_of_input_order(value):
     reverse = dict(reversed(list(value.items())))
     assert canonical_bytes(value) == canonical_bytes(reverse)
     assert parse_json(canonical_bytes(value)) == value
+
+
+@pytest.mark.parametrize("value", ["", "a\nb", "a" * 129, "\ud800"])
+def test_identifiers_reject_empty_control_and_unbounded_text(intent, value):
+    with pytest.raises(ValidationError):
+        replace(intent, account=value)
+
+
+@pytest.mark.parametrize("value", [object(), {"x": "a" * 4097}, [0] * 65, {1: 2}])
+def test_canonical_tree_limits(value):
+    with pytest.raises(ValidationError):
+        canonical_bytes(value)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"evidence_refs": (object(),)},
+        {"evidence_refs": {}},
+        {"consistency": "unsupported"},
+    ],
+)
+def test_wire_rejects_invalid_evidence_and_consistency(intent, changes):
+    if isinstance(changes.get("evidence_refs"), tuple):
+        with pytest.raises(ValidationError):
+            replace(intent, **changes)
+    else:
+        with pytest.raises(ValidationError):
+            Intent.from_json(json.dumps({**intent.as_object(), **changes}).encode())

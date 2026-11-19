@@ -10,6 +10,7 @@ from work_steward.canonical import ValidationError
 from work_steward.intent import Consistency, Intent
 from work_steward.model import (
     Action,
+    Attempt,
     Idempotency,
     Observation,
     Phase,
@@ -423,3 +424,83 @@ TestLifecycleSequences = LifecycleMachine.TestCase
 TestLifecycleSequences.settings = settings(
     max_examples=80, stateful_step_count=40, deadline=None, derandomize=True, database=None
 )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"phase": "admitted"},
+        {"assessment": "unknown"},
+        {"phase": Phase.POSSIBLY_SENT},
+        {"repetition_covered": set()},
+    ],
+)
+def test_invalid_attempt_records_are_rejected(changes):
+    with pytest.raises(ValidationError):
+        Attempt("a1", 0, **changes)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"intent": {}},
+        {"idempotency": "permanent"},
+        {"supported_consistency": {Consistency.C0}},
+        {"supported_consistency": frozenset({"C0"})},
+        {"effect": E.UNKNOWN},
+        {"attempts": []},
+        {"observations": []},
+        {"attempts": ({},)},
+        {"observations": ({},)},
+        {"disposition": D.ADMITTED},
+        {"attempts": (Attempt("a1", 0, Phase.UNSENT),)},
+        {"attempts": (Attempt("a1", 0),)},
+    ],
+)
+def test_invalid_restored_action_records_are_rejected(intent, changes):
+    with pytest.raises((ValidationError, TransitionError)):
+        replace(Action(intent, "key"), **changes)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"attempts": (Attempt("a1", 0), Attempt("a1", 0))},
+        {"attempts": (Attempt("a1", 0), Attempt("a2", 0))},
+        {"attempts": (Attempt("a1", 0), Attempt("a2", 0, Phase.UNSENT))},
+        {"attempts": (Attempt("a1", 0, Phase.UNSENT),)},
+    ],
+)
+def test_restored_active_state_cannot_duplicate_or_displace_attempts(intent, changes):
+    with pytest.raises(TransitionError):
+        replace(admitted(Action(intent, "key").evaluate()), **changes)
+
+
+@pytest.mark.parametrize(
+    "effect,reconciliation",
+    [
+        (E.NOT_ATTEMPTED, R.IDLE),
+        (E.NO_EFFECT, R.IDLE),
+        (E.CONFIRMED, R.IDLE),
+        (E.CONFLICTING, R.HUMAN),
+    ],
+)
+def test_restored_effect_requires_supporting_attempt_facts(intent, effect, reconciliation):
+    action = sent(admitted(Action(intent, "key").evaluate()))
+    with pytest.raises(TransitionError):
+        replace(action, disposition=D.CLOSED, effect=effect, reconciliation=reconciliation)
+
+
+def test_invalid_observations_and_closed_commands_are_rejected(intent):
+    with pytest.raises(ValidationError):
+        Observation("o1", "a1", intent.intent_digest, E.NOT_ATTEMPTED)
+    closed = Action(intent, "key").stop(close=True)
+    with pytest.raises(TransitionError):
+        closed.evaluate()
+    with pytest.raises(TransitionError):
+        closed.stop()
+    with pytest.raises(TransitionError):
+        closed.begin_reconciliation(authorized=True)
+    pending = sent(admitted(Action(intent, "key").evaluate())).takeover()
+    with pytest.raises(ValidationError):
+        pending.begin_reconciliation(authorized="yes")
