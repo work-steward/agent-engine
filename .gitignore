@@ -16,3 +16,7 @@ build/
 *.db
 *.db-*
 *.sqlite*
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.scratch/

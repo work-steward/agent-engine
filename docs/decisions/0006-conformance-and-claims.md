@@ -1,6 +1,6 @@
 # ADR 0006: Evidence-based conformance and bounded claims
 
-- Status: proposed.
+- Status: accepted via the project lead's explicit merge authorization for PR #2 on 2026-11-19.
 - References: D20, D47–53, D63–64, D77–79, D82–86, D91; AC-01–AC-12 under documented scope.
 - Product amendments: none. No autonomy threshold or certification claim is established.
 
@@ -20,4 +20,4 @@ Line coverage and one successful demo do not establish crash or concurrency inva
 
 ## Validation and limitations
 
-Designed only. Acceptance requires explicit evidence for every supported claim, including negative cases showing that prohibited behavior is denied. AC-12's restricted input-path checks cannot be advertised as untrusted-code isolation. Simulator results do not certify a real provider. Finite model/property tests are evidence under assumptions, not a mathematical proof over arbitrary executions.
+See [current implementation evidence](../IMPLEMENTATION_STATUS.md) for partial reference-model/simulator coverage; the full engine enforcement described here remains incomplete. Acceptance requires explicit evidence for every supported claim, including negative cases showing that prohibited behavior is denied. AC-12's restricted input-path checks cannot be advertised as untrusted-code isolation. Simulator results do not certify a real provider. Finite model/property tests are evidence under assumptions, not a mathematical proof over arbitrary executions.

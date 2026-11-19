@@ -1,8 +1,8 @@
 # Kernel proof: implementation design review
 
-Status: proposed implementation specification. Documentation only; no engine exists yet.
+Status: accepted kernel-proof design via project-lead-authorized merge of PR #2 on 2026-11-19. The first reference components are implemented; the durable engine does not yet exist. See [implementation evidence](IMPLEMENTATION_STATUS.md).
 
-The project lead approved the recommendations in chat on 2026-11-19: use Python and SQLite for a single-node proof, clarify action and reservation lifecycles, strengthen retry rules, specify a concrete trust boundary, and test with an independent simulated provider. Apache-2.0 remains the project license. This PR makes those recommendations concrete for review; it does not establish tested guarantees or amend D1–D100. Decision 101 remains unanswered.
+The project lead approved the recommendations in chat on 2026-11-19: use Python and SQLite for a single-node proof, clarify action and reservation lifecycles, strengthen retry rules, specify a concrete trust boundary, and test with an independent simulated provider. Apache-2.0 remains the project license. These specifications do not establish tested guarantees or amend D1–D100. Decision 101 remains unanswered.
 
 ## Scope and decisions
 
@@ -49,4 +49,4 @@ Exact package versions and lockfiles, SQL schema/migration scripts, model data t
 
 A real connector and reference workflow require the D87 selection rubric and verified provider behavior at Stage 2. Sensitive production data, encrypted context storage, remote deployment/authentication, stale-backup restoration, untrusted executable workers, and distributed scheduling require later designs before support is claimed. The kernel proof uses synthetic data only.
 
-GitHub Free private-repository review restrictions remain procedural. Existing CI verifies repository hygiene only. [Setup status](../SETUP_STATUS.md) records repository protection limits.
+GitHub Free private-repository review restrictions remain procedural. CI now checks repository hygiene and the initial model/simulator suite; it does not demonstrate the complete invariant set. [Setup status](../SETUP_STATUS.md) records repository protection limits.

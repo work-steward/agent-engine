@@ -1,6 +1,6 @@
 # ADR 0004: Trusted runtime with an independently persisted simulator
 
-- Status: proposed.
+- Status: accepted via the project lead's explicit merge authorization for PR #2 on 2026-11-19.
 - References: D23, D43, D57, D63–65, D69–71, D79, D94, D96, D98; AC-01, AC-03, AC-06–AC-08, AC-12.
 - Product amendments: none; initial proof supports no untrusted executable extensions.
 
@@ -20,4 +20,4 @@ An in-process fake is useful for reference-model tests but cannot alone establis
 
 ## Validation and limitations
 
-Designed only. Verify the engine survives or reconstructs its state after forced termination while the provider remains alive; verify provider restart independently; reject malformed and unauthorized responses without changing authority. AC-12 is limited to not exposing secrets/effect channels through the supported typed proposal path. It does not establish arbitrary-code containment. Details and exclusions are in the [threat model](../threat-model.md).
+See [current implementation evidence](../IMPLEMENTATION_STATUS.md) for partial reference-model/simulator coverage; the full engine enforcement described here remains incomplete. Verify the engine survives or reconstructs its state after forced termination while the provider remains alive; verify provider restart independently; reject malformed and unauthorized responses without changing authority. AC-12 is limited to not exposing secrets/effect channels through the supported typed proposal path. It does not establish arbitrary-code containment. Details and exclusions are in the [threat model](../threat-model.md).
