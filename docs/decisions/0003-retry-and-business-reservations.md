@@ -1,6 +1,6 @@
 # ADR 0003: Evidence-gated repetition and durable business reservations
 
-- Status: proposed.
+- Status: accepted via the project lead's explicit merge authorization for PR #2 on 2026-11-19.
 - References: D24, D45, D54–56, D72–74, D79, D93, D95; AC-02, AC-04–AC-09, AC-11.
 - Product amendments: none.
 
@@ -22,4 +22,4 @@ Automatic retry on timeout and TTL-based reservation expiry improve apparent ava
 
 ## Validation and limitations
 
-Designed only. Exercise delayed delivery after a negative lookup, retention expiry, overlapping requests, key parameter mismatch, confirmed effect followed by cancellation, and competing executions claiming one business key. Prove uniqueness only within this engine's surviving authoritative database; other applications and stale database restores remain outside that claim.
+See [current implementation evidence](../IMPLEMENTATION_STATUS.md) for partial reference-model/simulator coverage; the full engine enforcement described here remains incomplete. Exercise delayed delivery after a negative lookup, retention expiry, overlapping requests, key parameter mismatch, confirmed effect followed by cancellation, and competing executions claiming one business key. Prove uniqueness only within this engine's surviving authoritative database; other applications and stale database restores remain outside that claim.

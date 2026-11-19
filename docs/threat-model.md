@@ -1,6 +1,6 @@
 # Kernel-proof threat model
 
-Status: designed; no runtime protections implemented or tested.
+Status: accepted design. Strict synthetic intent validation and reference/simulator behaviors are tested; the production enforcement boundary remains unimplemented. See [current evidence](IMPLEMENTATION_STATUS.md).
 
 ## Assets and supported environment
 

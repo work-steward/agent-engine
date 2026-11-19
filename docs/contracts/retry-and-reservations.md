@@ -1,6 +1,6 @@
 # Repetition and business reservation contract, proof profile 1
 
-Status: proposed; no implementation or provider guarantee has been demonstrated.
+Status: accepted design. Reference repetition guards and synthetic idempotency profiles are tested; engine reservation persistence and production evidence admission are not implemented. See [evidence and limits](../IMPLEMENTATION_STATUS.md).
 
 ## Identities and uniqueness
 

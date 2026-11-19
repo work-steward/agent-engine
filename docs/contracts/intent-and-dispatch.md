@@ -1,6 +1,6 @@
 # Intent and dispatch binding contract, proof profile 1
 
-Status: proposed; synthetic simulator capability only.
+Status: accepted design; synthetic simulator capability only. The closed intent schema and canonicalization are implemented and tested; trusted dispatch binding is not yet implemented. See [evidence and limits](../IMPLEMENTATION_STATUS.md).
 
 ## Typed immutable intent
 

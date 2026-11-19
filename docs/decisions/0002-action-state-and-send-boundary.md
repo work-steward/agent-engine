@@ -1,6 +1,6 @@
 # ADR 0002: Independent action state and a fenced send boundary
 
-- Status: proposed.
+- Status: accepted via the project lead's explicit merge authorization for PR #2 on 2026-11-19.
 - References: D19, D24, D44–46, D55–56, D68, D75, D82, D95–96; AC-01–AC-08, AC-10.
 - Product amendments: none; makes the provisional v0.5 state model concrete.
 
@@ -22,4 +22,4 @@ A single success/failure enum loses uncertainty. Holding a database transaction 
 
 ## Validation and limitations
 
-Designed only. Test crashes before/after both commits, revocation and lease takeover at each boundary, unsuccessful commits, duplicate controller commands, and late observations. The trusted dispatcher's adherence to the boundary is an assumption until implemented and tested. Revocation before admission blocks admission; revocation detected before the send-boundary commit also blocks sending. A revocation committed after that boundary may be too late, even if the physical send has not started.
+See [current implementation evidence](../IMPLEMENTATION_STATUS.md) for partial reference-model/simulator coverage; the full engine enforcement described here remains incomplete. Test crashes before/after both commits, revocation and lease takeover at each boundary, unsuccessful commits, duplicate controller commands, and late observations. The trusted dispatcher's adherence to the boundary is an assumption until implemented and tested. Revocation before admission blocks admission; revocation detected before the send-boundary commit also blocks sending. A revocation committed after that boundary may be too late, even if the physical send has not started.

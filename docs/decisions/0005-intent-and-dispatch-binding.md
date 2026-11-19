@@ -1,6 +1,6 @@
 # ADR 0005: Versioned typed canonicalization and exact simulator dispatch
 
-- Status: proposed.
+- Status: accepted via the project lead's explicit merge authorization for PR #2 on 2026-11-19.
 - References: D19, D23–25, D39, D67, D70, D72, D79, D95, D97; AC-02–AC-04, AC-06, AC-11.
 - Product amendments: none.
 
@@ -20,4 +20,4 @@ Natural-language approval or a body-only hash omits material account/destination
 
 ## Validation and limitations
 
-Designed only. Test canonical golden vectors, duplicate keys, integer/boolean confusion, unsupported floats, omitted/null fields, Unicode, hash-domain separation, request mutation, account substitution, headers/query injection, redirect attempts, and adapter mismatch. Before a real adapter is supported, review its actual authentication, signing, destination resolution, HTTP transformations, and provider evidence semantics separately.
+See [current implementation evidence](../IMPLEMENTATION_STATUS.md) for partial reference-model/simulator coverage; the full engine enforcement described here remains incomplete. Test canonical golden vectors, duplicate keys, integer/boolean confusion, unsupported floats, omitted/null fields, Unicode, hash-domain separation, request mutation, account substitution, headers/query injection, redirect attempts, and adapter mismatch. Before a real adapter is supported, review its actual authentication, signing, destination resolution, HTTP transformations, and provider evidence semantics separately.

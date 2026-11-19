@@ -6,9 +6,9 @@ Preserve the handoff, define contribution and security procedures, configure ava
 
 ## First implementation milestone: kernel proof
 
-The [design review](KERNEL_PROOF_DESIGN.md) proposes Python/SQLite, concrete lifecycle and retry contracts, an independent simulator, and a [conformance evidence matrix](conformance.md). These remain design specifications; no runtime invariant has implementation or test evidence yet.
+The accepted [design](KERNEL_PROOF_DESIGN.md) specifies Python/SQLite, lifecycle/retry contracts, an independent simulator, and a [conformance evidence matrix](conformance.md). The initial intent schema, in-memory model, and provider simulator are implemented and tested; full durable runtime invariants remain undemonstrated. See [implementation status](IMPLEMENTATION_STATUS.md).
 
-1. Review the proposed ADRs and contracts for canonicalization, state transitions, transaction isolation, fencing, and process boundaries. Carry remaining implementation details into small PRs under those contracts.
+1. Implement under the accepted ADRs and contracts for canonicalization, state transitions, transaction isolation, fencing, and process boundaries. Carry remaining implementation details into small PRs under those contracts.
 2. Build a machine-checkable state model and deterministic external-system simulator.
 3. Implement the smallest durable action ledger with atomic event/state/attempt commits and business-effect uniqueness.
 4. Bind trusted adapter requests to approved intent, admit attempts under current authorization, and record the potentially-sent boundary before transmission.

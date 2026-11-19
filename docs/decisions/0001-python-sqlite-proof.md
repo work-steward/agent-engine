@@ -1,6 +1,6 @@
 # ADR 0001: Python and SQLite for the kernel proof
 
-- Status: proposed; implementation direction approved by the project lead on 2026-11-19.
+- Status: accepted via the project lead's explicit merge authorization for PR #2 on 2026-11-19.
 - References: D12, D42–44, D60–64, D73, D78, D97–98; AC-01, AC-02, AC-04, AC-07, AC-09, AC-10.
 - Product amendments: none. This chooses a first supported topology and storage implementation.
 
@@ -24,4 +24,4 @@ Serialized writes trade throughput for simpler admission semantics. Busy timeout
 
 ## Validation and limitations
 
-Designed only. Implementation must test concurrent claims/revocations using separate connections, journal rollback, stale updates, restart after forced process exit, and connection settings. `synchronous=FULL` is a configuration obligation, not proof against failed hardware, dishonest storage, power loss on every platform, or stale backup restoration. These guarantees depend on the documented SQLite/VFS/filesystem assumptions.
+See [current implementation evidence](../IMPLEMENTATION_STATUS.md) for partial reference-model/simulator coverage; the full engine enforcement described here remains incomplete. Implementation must test concurrent claims/revocations using separate connections, journal rollback, stale updates, restart after forced process exit, and connection settings. `synchronous=FULL` is a configuration obligation, not proof against failed hardware, dishonest storage, power loss on every platform, or stale backup restoration. These guarantees depend on the documented SQLite/VFS/filesystem assumptions.

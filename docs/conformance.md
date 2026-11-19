@@ -1,6 +1,6 @@
 # Kernel-proof conformance and acceptance
 
-Status: design obligations only. All runtime implementation and test evidence is currently absent.
+Status: accepted obligations with partial reference-model and simulator evidence. The durable engine is not implemented. See [implementation status](IMPLEMENTATION_STATUS.md), [intent tests](../tests/test_intent.py), [model tests](../tests/test_model.py), and [process/HTTP simulator tests](../tests/test_simulator.py). No complete runtime invariant is demonstrated yet.
 
 ## Evidence matrix
 
@@ -8,17 +8,17 @@ Each row must eventually link to implementation symbols, executable case names, 
 
 | Invariant | Required cases and assertions | Present evidence |
 | --- | --- | --- |
-| AC-01 Durable intent/attempt before transmission | Crash at intent, admission, and send-boundary commits; failed/uncertain commit; oracle proves every received request has committed prerequisites. | Designed; implementation/tests absent. |
-| AC-02 Immutable operation identity | Duplicate command, different execution, changed quantity/account, changed canonicalization; deny rebinding. | Designed; implementation/tests absent. |
-| AC-03 Intent/request mapping | Independently mutate destination, account, resource, quantity, key, body bytes, preconditions, headers, query, and adapter digest; deny before send. | Designed; implementation/tests absent. |
-| AC-04 Current authority at admission | Separate-connection revocation/admission and revocation/send-boundary schedules; committed prior revocation wins; disclose the later remote race. | Designed; implementation/tests absent. |
-| AC-05 Safe repetition | Accepted/lost response, delayed request after absent lookup, stale sender after lease takeover, finite retention expiry, scoped key mismatch; deny unsafe repeat and permit only covered cases. | Designed; implementation/tests absent. |
-| AC-06 Typed admissible outcome evidence | Accepted is pending; malformed/unrelated/duplicate/contradictory claims; all-attempt aggregation; no false finality. | Designed; implementation/tests absent. |
-| AC-07 Stale writer fencing | Conditional state-version/generation mismatch; only one send-boundary winner; late evidence admitted without stale overwrite authority. | Designed; implementation/tests absent. |
-| AC-08 Cancellation/revocation semantics | Close before/after boundary, delayed effect after close, denied reconciliation; retain history/uncertainty and block future unauthorized dispatch. | Designed; implementation/tests absent. |
+| AC-01 Durable intent/attempt before transmission | Crash at intent, admission, and send-boundary commits; failed/uncertain commit; oracle proves every received request has committed prerequisites. | Reference boundary semantics tested; durable engine/dispatcher absent. |
+| AC-02 Immutable operation identity | Duplicate command, different execution, changed quantity/account, changed canonicalization; deny rebinding. | Closed immutable intent/canonicalization tested; persistent identity registry absent. |
+| AC-03 Intent/request mapping | Independently mutate destination, account, resource, quantity, key, body bytes, preconditions, headers, query, and adapter digest; deny before send. | Intent hash/material changes and provider input rejection tested; trusted adapter/binding absent. |
+| AC-04 Current authority at admission | Separate-connection revocation/admission and revocation/send-boundary schedules; committed prior revocation wins; disclose the later remote race. | Model authority-change guards tested; authoritative policy/transaction linearization absent. |
+| AC-05 Safe repetition | Accepted/lost response, delayed request after absent lookup, stale sender after lease takeover, finite retention expiry, scoped key mismatch; deny unsafe repeat and permit only covered cases. | Model witness guards and real delayed/expired-key provider scenarios tested; production proof admission absent. |
+| AC-06 Typed admissible outcome evidence | Accepted is pending; malformed/unrelated/duplicate/contradictory claims; all-attempt aggregation; no false finality. | Model aggregation/identity/contradiction tests pass; actual receipt verifier absent. |
+| AC-07 Stale writer fencing | Conditional state-version/generation mismatch; only one send-boundary winner; late evidence admitted without stale overwrite authority. | Immutable model version/generation guards tested; durable concurrency enforcement absent. |
+| AC-08 Cancellation/revocation semantics | Close before/after boundary, delayed effect after close, denied reconciliation; retain history/uncertainty and block future unauthorized dispatch. | Model close/revocation/late-observation semantics tested; engine recovery absent. |
 | AC-09 Business uniqueness | Concurrent different executions, duplicate/mismatched intent, restart, cancelled/unknown/confirmed operation; claim stays unique and retained. | Designed; implementation/tests absent. |
-| AC-10 Atomic state/journal | Fail each write, rollback, kill/restart, concurrent sequencing, storage errors; no partial authoritative state/event commit. | Designed; implementation/tests absent. |
-| AC-11 Mandatory consistency | C2 operation with C1-only provider must be denied; provider atomic precondition failure must not apply an effect. | Designed; synthetic-provider tests absent; real support provider-dependent. |
+| AC-10 Atomic state/journal | Fail each write, rollback, kill/restart, concurrent sequencing, storage errors; no partial authoritative state/event commit. | Provider persistence/restart tested independently; engine state/journal ledger absent. |
+| AC-11 Mandatory consistency | C2 operation with C1-only provider must be denied; provider atomic precondition failure must not apply an effect. | Model C1/C2 denial and simulator atomic C2 races tested; engine enforcement absent and real support provider-dependent. |
 | AC-12 Supported-path secrecy/mediation | Closed proposal schema, no URL/credential authority, synthetic-secret redaction and mandatory dispatcher path. No arbitrary-code isolation claim. | Designed; implementation/tests absent; executable-worker isolation deferred. |
 
 ## Test layers

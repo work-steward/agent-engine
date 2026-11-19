@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "work-steward-engine"
+version = "0.1.0.dev0"
+description = "Experimental reference model and synthetic provider for dependable agent execution"
+requires-python = ">=3.13,<3.14"
+license = "Apache-2.0"
+readme = "README.md"
+dependencies = ["rfc8785>=0.1.4,<0.2"]
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "hypothesis>=6.130,<7", "ruff>=0.14,<1"]
+
+[project.scripts]
+work-steward-simulator = "work_steward.simulator.server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/work_steward"]

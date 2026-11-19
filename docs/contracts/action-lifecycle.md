@@ -1,6 +1,6 @@
 # Action lifecycle contract, proof profile 1
 
-Status: proposed. Normative for the first implementation after design review; currently unimplemented.
+Status: accepted design. In-memory reference transitions are implemented and tested; durable enforcement is not yet implemented. See [evidence and limits](../IMPLEMENTATION_STATUS.md).
 
 ## Authoritative records
 
