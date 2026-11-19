@@ -285,7 +285,7 @@ class Action:
             attempt_id, generation, repetition_covered=sent if unresolved else frozenset()
         )
         return self._change(
-            attempts=self.attempts + (new,),
+            attempts=(*self.attempts, new),
             disposition=Disposition.ADMITTED,
             effect=Effect.UNKNOWN if unresolved else self.effect,
             reconciliation=Reconciliation.IDLE,
@@ -303,7 +303,7 @@ class Action:
         if current.attempt_id != attempt_id or current.phase is not Phase.ADMITTED:
             raise TransitionError("Send boundary is single-use for the current attempt")
         current = replace(current, phase=Phase.POSSIBLY_SENT, assessment=Effect.UNKNOWN)
-        return self._change(attempts=self.attempts[:-1] + (current,), effect=Effect.UNKNOWN)
+        return self._change(attempts=(*self.attempts[:-1], current), effect=Effect.UNKNOWN)
 
     def stop(self, *, close: bool = False) -> "Action":
         """Fence unsent attempts; do not pretend a released sender was recalled."""
@@ -387,7 +387,7 @@ class Action:
             or previous is Effect.CONFLICTING
         ):
             outcome = Effect.CONFLICTING
-        elif previous in finals or previous is Effect.PENDING and incoming is Effect.UNKNOWN:
+        elif previous in finals or (previous is Effect.PENDING and incoming is Effect.UNKNOWN):
             outcome = previous
         else:
             outcome = incoming
@@ -426,7 +426,7 @@ class Action:
             )
         return self._change(
             attempts=attempts,
-            observations=self.observations + (observation,),
+            observations=(*self.observations, observation),
             disposition=d,
             effect=e,
             reconciliation=r,

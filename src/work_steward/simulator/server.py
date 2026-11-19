@@ -4,6 +4,7 @@ import argparse
 import json
 import socket
 import sqlite3
+from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -140,10 +141,8 @@ def main() -> None:
     )
     with ProviderServer(("127.0.0.1", args.port), store) as server:
         print(json.dumps({"host": "127.0.0.1", "port": server.server_port}), flush=True)
-        try:
+        with suppress(KeyboardInterrupt):
             server.serve_forever()
-        except KeyboardInterrupt:
-            pass
 
 
 if __name__ == "__main__":

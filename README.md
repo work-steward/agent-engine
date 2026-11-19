@@ -1,28 +1,26 @@
 # Work Steward — Agent Engine
 
-Dependable, inspectable execution for AI-assisted business workflows.
+Work Steward explores dependable execution for AI-assisted business workflows: bounded authority, inspectable attempts, and explicit handling of uncertain external effects.
 
-Work Steward aims to give teams control over what an agent may do, durable records of what it attempted, and explicit handling of uncertain outcomes. It is fully self-hostable by design.
+The current package contains an immutable intent schema, an **in-memory reference model**, and a separately persisted synthetic HTTP provider. It has no durable engine ledger, production dispatcher, or real connector. Use synthetic data only.
 
-**Status: experimental intent schema, in-memory action model, and independent provider simulator. The durable execution engine is not implemented. Not suitable for production consequential actions.**
+## Development
 
-The first milestone is a small execution kernel with a deterministic external-system simulator and failure-injection tests. Model integrations and a nontechnical workbench follow demonstrated execution guarantees.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run:
 
-## Start here
+```sh
+uv sync --frozen
+make check
+```
 
-- [Architecture baseline and 100 product decisions](docs/ARCHITECTURE_HANDOFF.md)
-- [Kernel-proof design review](docs/KERNEL_PROOF_DESIGN.md), [threat model](docs/threat-model.md), and [conformance obligations](docs/conformance.md)
-- [Development commands](docs/DEVELOPMENT.md) and [implementation evidence and limits](docs/IMPLEMENTATION_STATUS.md)
-- [Implementation roadmap](docs/ROADMAP.md)
-- [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md), and [security](SECURITY.md)
-- [Repository protection and public-release checklist](docs/REPOSITORY_SECURITY.md)
+Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock). `make lint` checks Python, Markdown, YAML, local documentation links, and repository hygiene. `make test` runs the reference-model and simulator tests.
 
-AI proposes; trusted execution authority decides. Unknown external outcomes remain unknown until admissible evidence resolves them. There is no universal exactly-once guarantee against arbitrary providers.
+## Project guides
 
-## Repository checks
+- [Architecture and code map](docs/architecture.md)
+- [Development and simulator usage](docs/DEVELOPMENT.md)
+- [Design decisions](docs/decisions/README.md)
+- [Threat model](docs/threat-model.md), [conformance gates](docs/conformance.md), and [roadmap](docs/ROADMAP.md)
+- [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md), and [security reporting](SECURITY.md)
 
-Run `uv sync --frozen`, `uv run --frozen pytest -q`, `uv run --frozen ruff check src tests`, and `uv run --frozen ruff format --check src tests`. Python 3.13.18 and the Python dependencies are pinned; see the development guide. `python3 scripts/check_repository.py` and `git diff --check` remain repository hygiene checks. Passing model/simulator tests does not demonstrate durable engine enforcement.
-
-## License
-
-Apache-2.0. Contributions use the same license. See [LICENSE](LICENSE).
+Licensed under [Apache-2.0](LICENSE).

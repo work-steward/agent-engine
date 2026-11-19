@@ -1,22 +1,26 @@
 # Contributing
 
-Start with the README, architecture baseline, and roadmap. Discuss substantial changes in an issue before implementation. Keep pull requests small and independently reviewable.
+Read the [code map](docs/architecture.md) and [roadmap](docs/ROADMAP.md) before choosing work. Discuss substantial API or architecture changes in an issue, then submit a focused pull request against `main`.
 
-## Submission and review
+## Checks
 
-- Use a topic branch and pull request targeting `main`; explain the behavior, rationale, and validation.
-- Run `python3 scripts/check_repository.py` and `git diff --check` before submission.
-- Add meaningful regression, property, crash, or concurrency tests when implementation changes warrant them. Documentation-only changes do not demonstrate execution guarantees.
-- A maintainer reviews every external contribution. Changes to authorization, dispatch, persistence, evidence, credentials, workflows, or release controls require explicit review by the relevant owner.
-- Preserve the 100 confirmed decisions. Proposed amendments require the project lead's explicit approval and an ADR referencing affected decisions and invariants.
-- Separate designed, implemented, tested, and provider-dependent claims. Never reinterpret timeout as definitive remote failure.
-- AI assistance is welcome. Contributors remain accountable for correctness, provenance, license compatibility, and verification; disclose substantial assistance in the PR.
-- Never submit credentials, private customer data, real business records, or copied material without permission. Use synthetic fixtures. Report vulnerabilities privately under SECURITY.md.
+```sh
+uv sync --frozen
+make check
+```
 
-## Rights and licensing
+`make format` applies safe Ruff fixes and Python formatting. Review the diff, then rerun `make check`. Lint covers all Python, including repository scripts; Markdown and YAML have their own configurations. Local documentation links must resolve to repository files. CI runs the same commands.
 
-Submit only work you have the right to contribute. Intentionally submitted contributions are under Apache-2.0, as described in that license's contribution terms. Preserve third-party notices and identify new dependencies and their licenses. No separate CLA or mandatory sign-off is configured in this bootstrap.
+## Changes and evidence
 
-## Merge policy
+- Add a regression, property, concurrency, or process test when behavior changes. Match the test to the guarantee; a passing in-memory model test does not establish durable execution.
+- Document a design decision when changing authority, external-effect handling, persistence, evidence, or a supported trust boundary. Explain the tradeoff and link to relevant code and tests.
+- Keep prose selective: explain purpose, constraints, and non-obvious choices. Put current behavior in code and executable tests. Update existing guides instead of adding handoff documents, implementation journals, or duplicate specifications.
+- Use synthetic fixtures. Never submit credentials or private business data; follow [SECURITY.md](SECURITY.md) for vulnerabilities.
+- AI assistance is welcome. Contributors remain responsible for correctness, provenance, and license compatibility; disclose substantial assistance and third-party material in the PR.
 
-Prefer squash merges and delete merged topic branches. Required checks and reviews must pass where GitHub enforcement is available. While private on GitHub Free, these are maintainer procedures, not enforced branch restrictions. The project lead may merge their own changes after documenting self-review; a sole maintainer cannot provide an independent approval of their own PR. Independent review of critical execution changes is a release gate.
+## Review and licensing
+
+A maintainer reviews external contributions. Security and execution-control changes require owner review, with independent review before any release that performs consequential actions. On private repositories under GitHub Free, these merge rules are procedural until enforced branch rules become available.
+
+Prefer squash merges. A sole maintainer may merge their own work after recording self-review and validation. Submit only work you have the right to contribute under [Apache-2.0](LICENSE), retain third-party notices, and identify dependency licenses. No separate CLA is required.
