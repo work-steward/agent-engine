@@ -29,3 +29,24 @@ Finite retention uses a logical clock. The harness invokes `ProviderStore.advanc
 ## Adding coverage
 
 Use the existing tests as entry points for schema, transition, and provider changes. Subprocess readiness and ordering use explicit barriers instead of sleeps. Hypothesis supplies shrinking/replayable command traces. Preserve the [failure boundary](threat-model.md) when adding cases; provider/client termination is not an engine-ledger crash test.
+
+## Engine ledger
+
+`Ledger` is a Python storage API for synthetic, trusted model events. Supply an existing typed `Intent`; it does not accept model text as authority:
+
+```python
+from pathlib import Path
+from work_steward.ledger import Command, Ledger
+
+ledger = Ledger(Path(".scratch/engine.sqlite"), organization_id=intent.organization_id)
+action = ledger.submit(intent, provider_key="stable-synthetic-key")
+action = ledger.apply(
+    intent.operation_id, expected_version=action.version, command=Command.EVALUATE
+)
+```
+
+Use `get(operation_id)`, `history(operation_id)`, and `reservation(namespace, business_key)` to inspect stored facts. Identical submissions return current state without resetting it or adding events. Changed intent, provider key, or capability profile conflicts; another operation cannot claim a reserved business key. Reservations have no expiry or release API.
+
+Use one organization per local database, separate from provider storage. The ledger requires STRICT tables, foreign keys, WAL, FULL synchronization, and bounded lock waits. Unknown application/schema versions and organization mismatches are rejected. This profile permits up to 64 attempts per operation to bound serialized repetition proofs; journal history can contain more events. History records transaction order and command input, not verified caller identity or tamper-proof audit evidence. Storage failures propagate without returning a successful command.
+
+[Ledger tests](../tests/test_ledger.py) use independent processes/connections and terminate writers before and after commit. They establish storage behavior under the stated filesystem assumptions, not power-loss durability or safe restoration of stale backups. Policy verification, real receipt admission, recovery scheduling, and effectful dispatch remain pending.

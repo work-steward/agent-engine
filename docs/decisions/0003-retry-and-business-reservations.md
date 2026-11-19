@@ -1,6 +1,6 @@
 # ADR 0003: Repetition evidence and business reservations
 
-Status: accepted; durable reservations and real proof admission pending.
+Status: accepted; durable reservations implemented, real proof admission pending.
 
 ## Decision
 
@@ -8,7 +8,7 @@ Keep operation, business-effect, provider-key, and attempt identities distinct. 
 
 Another transmission needs current authority and evidence covering every earlier potentially effective attempt: fenced before send, final no-effect excluding later execution, or a supported idempotency guarantee. A timeout or negative lookup is insufficient. Finite retention needs a provider-enforced arrival bound; local expiry alone cannot stop an old sender arriving later.
 
-The engine must reserve `(organization, capability namespace, business_effect_key)` for one immutable operation. Reservations survive cancellation, revocation, crashes, success, and uncertainty. No automatic key recycling or release is supported. Identical repeat commands return the same operation; another operation claiming the key conflicts. Changed material intent needs a reviewed supersession protocol.
+The [ledger](../../src/work_steward/ledger.py) reserves `(organization, capability namespace, business_effect_key)` for one immutable operation. Reservations survive cancellation, revocation, crashes, success, and uncertainty. No automatic key recycling or release is supported. Identical repeat submissions return the current operation; another operation claiming the key conflicts. Intent, provider key, and capability profile are immutable bindings. The synthetic provider's key scope is `(account, provider_key)`; the ledger prevents another operation from reusing that binding. Changed material intent needs a reviewed supersession protocol.
 
 ## Rationale
 
