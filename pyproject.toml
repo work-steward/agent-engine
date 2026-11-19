@@ -12,7 +12,14 @@ readme = "README.md"
 dependencies = ["rfc8785>=0.1.4,<0.2"]
 
 [dependency-groups]
-dev = ["pytest>=8.3,<10", "hypothesis>=6.130,<7", "ruff>=0.14,<1"]
+dev = [
+    "pytest>=8.3,<10",
+    "hypothesis>=6.130,<7",
+    "ruff>=0.14,<1",
+    "pymarkdownlnt>=0.9.30,<1",
+    "yamllint>=1.37,<2",
+    "markdown-it-py>=3,<5",
+]
 
 [project.scripts]
 work-steward-simulator = "work_steward.simulator.server:main"
@@ -26,7 +33,14 @@ target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = ["E", "F", "I", "UP", "B", "S", "SIM", "C4", "PIE", "RUF", "DTZ", "T10", "PTH"]
+
+[tool.ruff.lint.per-file-ignores]
+# Pytest assertions are the test oracle, not runtime input validation.
+"tests/**" = ["S101"]
+# These fixtures launch the current interpreter with fixed synthetic programs, without a shell.
+"tests/conftest.py" = ["S603"]
+"tests/test_simulator.py" = ["S603"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/work_steward"]

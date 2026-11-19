@@ -1,35 +1,31 @@
-# Developing the reference kernel
+# Development
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) from its official distribution, then run from the repository root:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), Git, and Make. Use the Python version in [.python-version](../.python-version); the simulator also needs SQLite 3.37 or later with STRICT tables and WAL support.
 
 ```sh
 uv sync --frozen
-uv run --frozen ruff check src tests
-uv run --frozen ruff format --check src tests
-uv run --frozen pytest -q
-python3 scripts/check_repository.py
-git diff --check
+make check
 ```
 
-The supported interpreter is CPython 3.13.18, pinned in `.python-version`. SQLite must be at least 3.37 with STRICT tables, WAL, FULL synchronization and foreign keys. Tests have been run locally on macOS arm64; CI targets Ubuntu. Subprocess readiness and request ordering use explicit pipe/select barriers, not sleeps. Hypothesis failures include a shrinking/replayable command trace; deterministic settings are in the test source.
+`make lint` runs repository-wide Ruff checks/formatting, Markdown and YAML linters, local-link validation, and file/workflow hygiene. `make test` runs pytest. `make format` applies safe Ruff fixes and formatting; inspect its diff before committing. CI runs the same targets.
 
-## Run a synthetic destination
+Rules live in [pyproject.toml](../pyproject.toml), [.pymarkdown.json](../.pymarkdown.json), and [.yamllint.yml](../.yamllint.yml). Python security exceptions are limited to test assertions and explicit synthetic subprocess launches. Markdown paragraph wrapping and a first-line H1 are optional so tables and GitHub template fragments remain practical. Local links are parsed as Markdown, must resolve to repository content with exact path casing, and cannot escape to private filesystem paths. External URLs are not fetched.
 
-Create a scratch directory, then start the loopback provider:
+## Synthetic provider
 
 ```sh
 mkdir -p .scratch
 uv run --frozen work-steward-simulator --database .scratch/provider.sqlite
 ```
 
-The first stdout line gives the bound `127.0.0.1` address and ephemeral port. This is an unauthenticated local **synthetic test tool**, not a production service. It refuses non-loopback binding and exposes no administrative endpoints. Use synthetic data only. Ignore the scratch directory in Git.
+The first stdout line gives the bound loopback address and ephemeral port. This is an unauthenticated synthetic test tool. Use `--help` for its idempotency and fault profiles.
 
-`POST /v1/effects` requires `Content-Type: application/json`, `X-WS-Attempt-ID`, and a closed JSON object containing `operation_id`, `account`, `resource`, positive integer `quantity`, and `resource_version` (null or an exact nonnegative integer). A keyed profile also requires `Idempotency-Key`. Duplicate/unknown material headers and JSON fields are rejected. The operation ID correlates effects; it does not secretly deduplicate them.
+`POST /v1/effects` takes JSON fields `operation_id`, `account`, `resource`, positive integer `quantity`, and `resource_version` (null or an exact nonnegative integer). It requires `Content-Type: application/json`, `X-WS-Attempt-ID`, and, for keyed profiles, `Idempotency-Key`. See [request validation](../src/work_steward/simulator/store.py) and [protocol tests](../tests/test_simulator.py) for exact behavior.
 
-`GET /v1/effects?account=...&operation_id=...` is read-only and returns bounded records, a truncation flag, and `final_absence=false`. Query identifiers require strict UTF-8 decoding; invalid sequences are rejected rather than replaced with another identifier. Responses obey both record-count and 65,536-byte canonical UTF-8 limits, reducing the returned prefix and setting `truncated=true` when needed. It may report an empty list while an older request can still arrive. No effect or finality should be inferred beyond the selected profile's documented evidence.
+`GET /v1/effects?account=...&operation_id=...` returns bounded status records with explicit truncation and `final_absence=false`. Missing records cannot rule out a delayed request. Fault profiles can deliberately duplicate or contradict status.
 
-Profiles: `--profile permanent` (default), `none`, or `finite`. Finite retention uses a **logical clock**, advanced only by the test harness through `ProviderStore.advance_clock`; the default retention is 10 ticks. A permanent key matches the canonical request parameters within its account. Reusing it with changed parameters returns HTTP 409. Cache replay retains the original provider record/attempt identity. A restarting provider must use the same persisted profile, behavior, and retention settings.
+Finite retention uses a logical clock. The harness invokes `ProviderStore.advance_clock` and `complete_pending` out of band; these controls are absent from HTTP. A restarting provider must use its persisted profile configuration. Tests may inspect storage as an oracle; a future controller must use only the public protocol.
 
-Behaviors: `--behavior apply` (default), `pending`, `reject`, `drop_after_apply`, `contradictory_status`, or `duplicate_status`. Pending requests are released only by the harness through `ProviderStore.complete_pending`; C2 conditions are checked atomically at application time. `drop_after_apply` commits before closing the socket without a response. Contradictory/duplicate status behaviors intentionally test consumers' evidence handling.
+## Adding coverage
 
-Tests may inspect provider storage as an oracle and invoke harness controls out of band. The future controller must use only the public protocol. See [implementation status](IMPLEMENTATION_STATUS.md) for demonstrated behavior and the missing engine enforcement layer.
+Use the existing tests as entry points for schema, transition, and provider changes. Subprocess readiness and ordering use explicit barriers instead of sleeps. Hypothesis supplies shrinking/replayable command traces. Preserve the [failure boundary](threat-model.md) when adding cases; provider/client termination is not an engine-ledger crash test.

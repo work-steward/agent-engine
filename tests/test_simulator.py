@@ -346,13 +346,13 @@ def test_generated_permanent_keys_preserve_first_parameters_and_effect_count(com
         expected = {}
         for index, (account, key, quantity) in enumerate(commands):
             identity = account, key
-            body = dict(
-                operation_id=f"op-{key}",
-                account=f"account-{account}",
-                resource="resource",
-                quantity=quantity,
-                resource_version=None,
-            )
+            body = {
+                "operation_id": f"op-{key}",
+                "account": f"account-{account}",
+                "resource": "resource",
+                "quantity": quantity,
+                "resource_version": None,
+            }
             if identity in expected and expected[identity] != quantity:
                 with pytest.raises(ProviderConflict):
                     store.submit(body, attempt_id=f"a{index}", provider_key=f"key-{key}")
@@ -373,4 +373,5 @@ def test_simulator_refuses_non_loopback_binding(tmp_path):
     from work_steward.simulator.server import ProviderServer
 
     with pytest.raises(ValueError):
-        ProviderServer(("0.0.0.0", 0), ProviderStore(tmp_path / "provider.sqlite"))
+        # Negative test: the simulator must reject all-interface binding.
+        ProviderServer(("0.0.0.0", 0), ProviderStore(tmp_path / "provider.sqlite"))  # noqa: S104

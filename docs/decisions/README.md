@@ -1,16 +1,14 @@
-# Architecture decision records
+# Architecture decisions
 
-Use `NNNN-short-title.md`. Statuses: proposed, accepted, superseded, rejected.
+ADRs explain why a consequential choice was made and what constrains future changes. Keep mechanics in code and executable tests. New records use `NNNN-short-title.md` and a status of proposed, accepted, superseded, or rejected.
 
-Each record states context, decision, alternatives, affected D1–D100 and AC-01–AC-12 references, trust assumptions, validation evidence, limitations, and consequences. Explicitly identify product amendments requiring project-lead approval.
+| ADR | Decision |
+| --- | --- |
+| [0001](0001-python-sqlite-proof.md) | Python and local SQLite |
+| [0002](0002-action-state-and-send-boundary.md) | Independent state dimensions and a fenced transmission boundary |
+| [0003](0003-retry-and-business-reservations.md) | Evidence-gated repetition and retained business reservations |
+| [0004](0004-trusted-runtime-and-provider-boundary.md) | Independent simulator and explicit trust boundary |
+| [0005](0005-intent-and-dispatch-binding.md) | Typed canonicalization and exact request binding |
+| [0006](0006-conformance-and-claims.md) | Executable conformance evidence and bounded claims |
 
-The project lead approved the kernel-proof recommendations on 2026-11-19, including the Python/SQLite direction and retaining Apache-2.0. The detailed records below were accepted through the project lead's explicit authorization to merge PR #2. Implementation evidence is tracked separately. The original handoff and its 100 product decisions remain unchanged; this does not ratify every earlier provisional refinement or Decision 101.
-
-| ADR | Scope | Status |
-| --- | --- | --- |
-| [0001](0001-python-sqlite-proof.md) | Python, SQLite, durability and write serialization | Accepted |
-| [0002](0002-action-state-and-send-boundary.md) | Operation state, fencing and transmission boundary | Accepted |
-| [0003](0003-retry-and-business-reservations.md) | Repetition evidence and reservation lifecycle | Accepted |
-| [0004](0004-trusted-runtime-and-provider-boundary.md) | Trusted runtime and independent simulator | Accepted |
-| [0005](0005-intent-and-dispatch-binding.md) | Typed canonicalization and request mapping | Accepted |
-| [0006](0006-conformance-and-claims.md) | Test evidence and supported claims | Accepted |
+Original product-discovery notes remain in [Git history](https://github.com/work-steward/agent-engine/blob/b267f0d19aaca659c05094d10f2cd865461e0f81/docs/ARCHITECTURE_HANDOFF.md). They preserve provenance; current behavior is defined by the code/tests, with maintained constraints in these ADRs and the [roadmap](../ROADMAP.md).

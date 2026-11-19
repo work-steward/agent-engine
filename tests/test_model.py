@@ -55,15 +55,15 @@ def observe(action, effect, **kwargs):
 
 
 def proof(action, **changes):
-    values = dict(
-        intent_digest=action.intent.intent_digest,
-        covered_attempt_ids=frozenset(
+    values = {
+        "intent_digest": action.intent.intent_digest,
+        "covered_attempt_ids": frozenset(
             a.attempt_id for a in action.attempts if a.phase is Phase.POSSIBLY_SENT
         ),
-        account=action.intent.account,
-        capability=action.intent.capability,
-        provider_key=action.provider_key,
-    )
+        "account": action.intent.account,
+        "capability": action.intent.capability,
+        "provider_key": action.provider_key,
+    }
     return RepetitionProof(**(values | changes))
 
 
@@ -252,7 +252,7 @@ def test_restored_model_snapshot_cannot_drop_repetition_coverage(intent):
     action = admitted(action, "a2", proof(action))
     without_coverage = replace(action.attempts[-1], repetition_covered=frozenset())
     with pytest.raises(TransitionError):
-        replace(action, attempts=action.attempts[:-1] + (without_coverage,))
+        replace(action, attempts=(*action.attempts[:-1], without_coverage))
     with pytest.raises(TransitionError):
         replace(action, generation=action.generation + 1)
     with pytest.raises(ValidationError):

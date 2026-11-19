@@ -1,9 +1,7 @@
 # Governance
 
-Work Steward is initially led by @sohambhattacharjee. The project lead owns repository administration, roadmap, release approval, and amendments to confirmed product decisions. Maintainer roles may grow with demonstrated contribution and trust; access is granted explicitly with least privilege.
+Work Steward is initially maintained by [@sohambhattacharjee](https://github.com/sohambhattacharjee), who owns the roadmap, repository administration, and release approval. Maintainer access grows through explicit, least-privilege grants.
 
-Architecture refinements are recorded in `docs/decisions/` with status, affected decisions and invariants, alternatives, and validation. The handoff is provisional design context; its proposed refinements are not automatically confirmed product amendments.
+Discuss proposals in issues and pull requests. Record significant technical choices in [ADRs](docs/decisions/README.md); changes to product scope, authority, trust boundaries, licensing, or release policy require project-lead review. Explain disputed decisions in writing; the project lead resolves unresolved disputes.
 
-Contributors discuss changes in issues and PRs. Maintainers explain disputed decisions in writing; the project lead resolves unresolved technical or governance disputes. Report conduct concerns privately through the contact route in CODE_OF_CONDUCT.md.
-
-Only the project lead may authorize changing repository visibility, publishing releases, granting write/admin access, or changing the project license. This repository remains private until a separate public-release decision and checklist review.
+Only the project lead may authorize public visibility, releases, licensing changes, or new write/admin access. Follow [the code of conduct](CODE_OF_CONDUCT.md) in project spaces and [the contribution rules](CONTRIBUTING.md) for merges.
