@@ -51,6 +51,6 @@ Use one organization per local database, separate from provider storage. This pr
 
 ## Governed operations
 
-Create `Authority(path, organization_id=..., administrators=frozenset({...}))` for a separate governed database. Trusted host code uses `configure`, `record_evidence`, `approve`, and `revoke`; it must authenticate actor identities. Submit through `authority.ledger.submit`, then use `admit` and `mark_send_possible` with current versions and generations. Reference `Ledger.apply` is disabled in this mode. No method sends a request.
+Create `Authority(path, organization_id=..., administrators=frozenset({...}))` for a separate governed database. Host code must authenticate actors before calling `configure`, `record_evidence`, `approve`, or `revoke`. Submit through `authority.ledger.submit`; use current versions and generations for `admit` and `mark_send_possible`. Reference `Ledger.apply` is disabled, and no method sends a request.
 
-Known v1 reference databases upgrade atomically on reopen, preserving bindings, reservations, and history. They remain reference databases; existing model authority is never promoted into governed approvals. [Authority tests](../tests/test_authority.py) define the expiry, role, scope, restart, and race cases.
+V1 reference databases upgrade atomically on reopen, preserving data and reference mode. Model authority never becomes a governed approval. See the [authority tests](../tests/test_authority.py) for boundary cases.

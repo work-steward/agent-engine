@@ -4,12 +4,12 @@ Status: accepted.
 
 ## Decision
 
-Separate reference and governed databases. Governed operations cannot use the reference command API. [Authority](../../src/work_steward/authority.py) binds approvals to immutable intent, actor, policy revision, and expiry; policy changes require new approvals. Current account/capability/adapter/resource/quantity scope and evidence versions/expiry are checked in the write transaction at admission and the possible-send boundary.
+Separate reference and governed databases so model commands cannot bypass policy. [Authority](../../src/work_steward/authority.py) checks exact-intent approvals, current policy, evidence, and expiry in the transaction that admits an attempt or records its possible-send boundary. Policy changes require new approvals.
 
-Scope evidence by account, capability, subject, and predicate. Preserve policy, approval, evidence, and revocation history. Revocation fences unsent attempts; it cannot recall a released sender. Retain a nondecreasing observed clock floor even on authorization denial so clock rollback cannot revive an expired grant. Unknown outcomes cannot be retried through this controller.
+Scope evidence by account, capability, subject, and predicate to prevent reuse across unrelated actions. Preserve authority history and a clock floor on denial to prevent expired grants from reviving after clock rollback. Revocation fences unsent attempts; released senders remain possible effects. Unknown outcomes cannot be retried here.
 
 ## Boundary
 
-This is a privileged local control API. Host code must authenticate `actor`, mediate access, and establish evidence provenance; proposal fields cannot supply these facts. Administrator bindings cannot be replaced on reopen. Python callers sharing the trusted runtime are not isolated from each other.
+Host code must authenticate actors and establish evidence provenance; proposal fields cannot supply these facts. Administrator bindings are immutable across reopens. Trusted Python callers are not isolated from each other.
 
-Cached action authority fields are projections. Only current controller checks authorize its state transitions; neither a returned action nor a persisted boundary grants transport access. Provider receipt verification, exact wire binding, and dispatch remain separate work. The clock floor covers committed observations under the existing storage assumptions, not an independent trusted-time service.
+Cached authority fields and persisted boundaries grant no transport access. Wire binding, provider-proof verification, and dispatch remain pending. The clock floor covers committed observations under the storage assumptions, not independent trusted time.

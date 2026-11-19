@@ -1,6 +1,6 @@
 # Roadmap
 
-Immutable intents, the reference model, SQLite ledger/reservations, local policy/approvals, and independent provider simulator are implemented. [Tests](../tests) bound their behavior; caller authentication, provider-proof admission, and complete execution guarantees remain pending.
+The [code map](architecture.md) lists implemented components. Complete execution guarantees remain pending.
 
 ## Next: durable kernel
 
