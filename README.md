@@ -1,2 +1,26 @@
-# agent-engine
-Dependable, inspectable execution for AI-assisted business workflows. Experimental, self-hostable execution kernel.
+# Work Steward — Agent Engine
+
+Dependable, inspectable execution for AI-assisted business workflows.
+
+Work Steward aims to give teams control over what an agent may do, durable records of what it attempted, and explicit handling of uncertain outcomes. It is fully self-hostable by design.
+
+**Status: architecture and repository bootstrap. No execution engine is implemented. Not suitable for production consequential actions.**
+
+The first milestone is a small execution kernel with a deterministic external-system simulator and failure-injection tests. Model integrations and a nontechnical workbench follow demonstrated execution guarantees.
+
+## Start here
+
+- [Architecture baseline and 100 product decisions](docs/ARCHITECTURE_HANDOFF.md)
+- [Implementation roadmap](docs/ROADMAP.md)
+- [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md), and [security](SECURITY.md)
+- [Repository protection and public-release checklist](docs/REPOSITORY_SECURITY.md)
+
+AI proposes; trusted execution authority decides. Unknown external outcomes remain unknown until admissible evidence resolves them. There is no universal exactly-once guarantee against arbitrary providers.
+
+## Repository checks
+
+Run `python3 scripts/check_repository.py` and `git diff --check`. Python is used only for bootstrap checks; the engine language and storage technology remain undecided.
+
+## License
+
+Apache-2.0. Contributions use the same license. See [LICENSE](LICENSE).

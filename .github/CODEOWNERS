@@ -1,0 +1,8 @@
+# Enforced owner reviews depend on plan, visibility, and branch rules.
+* @sohambhattacharjee
+/.github/ @sohambhattacharjee
+/scripts/ @sohambhattacharjee
+/docs/decisions/ @sohambhattacharjee
+/docs/ARCHITECTURE_HANDOFF.md @sohambhattacharjee
+/SECURITY.md @sohambhattacharjee
+/LICENSE @sohambhattacharjee
