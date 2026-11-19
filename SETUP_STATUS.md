@@ -29,6 +29,6 @@ Repository: https://github.com/work-steward/agent-engine
 - Organization-required 2FA is not yet enabled. Verify the owner's authentication setup and enable this requirement before adding collaborators. There is only one organization member, the owner.
 - A tested private security-reporting channel and independent conduct appeal contact remain public-launch gates.
 - The existing Git credential helper was used for upload and API administration. The connected GitHub App cannot yet access this new organization/repository; no new app access was granted.
-- No implementation language or storage engine selected. No runtime, simulator, or execution invariants implemented or tested.
+- The project lead approved Python and SQLite as the kernel-proof direction on 2026-11-19. Detailed [ADRs and contracts](docs/KERNEL_PROOF_DESIGN.md) are proposed for implementation review. No runtime, simulator, or execution invariants are implemented or tested.
 
 See docs/REPOSITORY_SECURITY.md for target controls and public-release requirements. Making the repository public requires a separate owner decision.
