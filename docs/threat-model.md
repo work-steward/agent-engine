@@ -9,6 +9,7 @@ The supported test environment is a trusted host with local SQLite storage and s
 | Intent input | Closed schema; no free-form destination, credentials, or caller-supplied authorization. |
 | Reference reducer | Trusted policy/evidence events; no persistence or actual network authority. |
 | Engine ledger | Durable storage of trusted model commands; no caller authentication, policy verification, receipt verification, or transport. |
+| Authority controller | Governed-mode policy/approval checks; host-authenticated caller identities, evidence provenance, and clock configuration remain trusted. |
 | Provider simulator | Independent process/database with an unauthenticated loopback HTTP interface. |
 | Test harness | May control faults and inspect hidden provider state; that oracle must never authorize controller actions. |
 

@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import selectors
 import sqlite3
 import subprocess
@@ -130,3 +131,26 @@ def provider(tmp_path):
                 process.stdout.close()
 
     return start
+
+
+@contextmanager
+def process(target, *arguments):
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe()
+    worker = context.Process(target=target, args=(*arguments, child))
+    worker.start()
+    child.close()
+    try:
+        yield worker, parent
+    finally:
+        parent.close()
+        if worker.is_alive():
+            worker.kill()
+        worker.join(timeout=10)
+        assert not worker.is_alive()
+        worker.close()
+
+
+def receive(connection):
+    assert connection.poll(10), "Worker did not reach its explicit synchronization barrier"
+    return connection.recv()

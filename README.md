@@ -2,7 +2,7 @@
 
 Work Steward explores dependable execution for AI-assisted business workflows: bounded authority, inspectable attempts, and explicit handling of uncertain external effects.
 
-The current package contains an immutable intent schema, an **in-memory reference model**, a SQLite ledger for trusted model commands and retained business-effect reservations, and a separately persisted synthetic HTTP provider. Authoritative policy, verified provider evidence, a production dispatcher, and real connectors remain pending. Use synthetic data only.
+The package provides immutable intents, an **in-memory reference model**, a SQLite ledger with retained business-effect reservations, a local policy/approval controller, and an independent synthetic HTTP provider. Caller authentication, provider-proof verification, a production dispatcher, and real connectors remain pending. Use synthetic data only.
 
 ## Development
 
@@ -13,7 +13,7 @@ uv sync --frozen
 make check
 ```
 
-Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock). `make lint` checks Python, Markdown, YAML, local documentation links, and repository hygiene. `make test` runs the reference-model, ledger, and simulator tests.
+Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock). `make lint` checks Python, Markdown, YAML, local documentation links, and repository hygiene. `make test` covers the model, storage, authority, and simulator.
 
 ## Project guides
 

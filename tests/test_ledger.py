@@ -1,11 +1,10 @@
 """Engine storage tests; no test here authorizes or invokes effectful transport."""
 
-import multiprocessing
 import sqlite3
-from contextlib import contextmanager
 from dataclasses import replace
 
 import pytest
+from conftest import process, receive
 
 from work_steward.canonical import ValidationError, parse_json
 from work_steward.intent import Consistency, Intent
@@ -377,7 +376,7 @@ def test_unrecognized_database_and_newer_schema_are_rejected(tmp_path, ledger):
         ]
         assert db.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
     with sqlite3.connect(ledger.path) as db:
-        db.execute("PRAGMA user_version=2")
+        db.execute("PRAGMA user_version=3")
     with pytest.raises(LedgerFormatError):
         Ledger(ledger.path, organization_id="org-1")
     with pytest.raises(LedgerFormatError):
@@ -401,29 +400,6 @@ def test_closed_commands_and_input_limits_fail_without_writes(ledger, intent):
     assert counts(ledger.path) == (1, 1, 1, 0, 0, 1)
     with pytest.raises(ValidationError):
         Ledger(":memory:", organization_id="org-1")
-
-
-@contextmanager
-def process(target, *arguments):
-    context = multiprocessing.get_context("spawn")
-    parent, child = context.Pipe()
-    worker = context.Process(target=target, args=(*arguments, child))
-    worker.start()
-    child.close()
-    try:
-        yield worker, parent
-    finally:
-        parent.close()
-        if worker.is_alive():
-            worker.kill()
-        worker.join(timeout=10)
-        assert not worker.is_alive()
-        worker.close()
-
-
-def receive(connection):
-    assert connection.poll(10), "Worker did not reach its explicit synchronization barrier"
-    return connection.recv()
 
 
 def _crashing_writer(path, intent_bytes, command, before_commit, connection):

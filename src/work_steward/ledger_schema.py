@@ -1,11 +1,12 @@
-"""Version-one engine storage, intentionally separate from the provider database."""
+"""Engine storage, separate from the provider database."""
 
 APPLICATION_ID = 0x57534C44  # WSLD
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = (
     """CREATE TABLE ledger_meta (
-        singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL
+        singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL,
+        mode TEXT NOT NULL CHECK(mode IN ('reference','governed'))
     ) STRICT""",
     """CREATE TABLE operations (
         operation_id TEXT PRIMARY KEY, intent BLOB NOT NULL, intent_digest TEXT NOT NULL,
@@ -77,3 +78,43 @@ SCHEMA = (
 
 # Fixed identifiers; triggers guard accidental edits, not a privileged database editor.
 IMMUTABLE_TABLES = ("ledger_meta", "operations", "reservations", "observations", "journal")
+
+AUTHORITY_SCHEMA = (
+    """CREATE TABLE authority_config (
+        singleton INTEGER PRIMARY KEY CHECK(singleton=1), administrators BLOB NOT NULL,
+        last_tick INTEGER NOT NULL CHECK(last_tick>=0)
+    ) STRICT""",
+    """CREATE TABLE policies (
+        revision INTEGER PRIMARY KEY CHECK(revision>0), value BLOB NOT NULL,
+        actor TEXT NOT NULL, at INTEGER NOT NULL CHECK(at>=0)
+    ) STRICT""",
+    """CREATE TABLE approvals (
+        sequence INTEGER PRIMARY KEY, approval_id TEXT NOT NULL UNIQUE,
+        operation_id TEXT NOT NULL REFERENCES operations(operation_id), intent_digest TEXT NOT NULL,
+        policy_revision INTEGER NOT NULL REFERENCES policies(revision), actor TEXT NOT NULL,
+        issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL CHECK(expires_at>issued_at)
+    ) STRICT""",
+    """CREATE TABLE revocations (
+        approval_id TEXT PRIMARY KEY REFERENCES approvals(approval_id), actor TEXT NOT NULL,
+        reason TEXT NOT NULL, at INTEGER NOT NULL CHECK(at>=0)
+    ) STRICT""",
+    "CREATE INDEX approvals_operation ON approvals(operation_id,sequence DESC)",
+    """CREATE TABLE evidence (
+        sequence INTEGER PRIMARY KEY, account TEXT NOT NULL, capability TEXT NOT NULL,
+        subject TEXT NOT NULL, predicate TEXT NOT NULL,
+        material_version TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0),
+        expires_at INTEGER NOT NULL, actor TEXT NOT NULL, at INTEGER NOT NULL,
+        UNIQUE(account,capability,subject,predicate,revision), CHECK(expires_at>at)
+    ) STRICT""",
+    """CREATE TABLE authority_denials (
+        sequence INTEGER PRIMARY KEY, at INTEGER NOT NULL CHECK(at>=0), reason TEXT NOT NULL
+    ) STRICT""",
+    """CREATE TRIGGER retain_authority_admins BEFORE UPDATE ON authority_config
+        WHEN NEW.singleton IS NOT OLD.singleton OR NEW.administrators IS NOT OLD.administrators
+          OR NEW.last_tick<OLD.last_tick
+        BEGIN SELECT RAISE(ABORT,'immutable authority configuration'); END""",
+    """CREATE TRIGGER retain_authority_config BEFORE DELETE ON authority_config
+        BEGIN SELECT RAISE(ABORT,'retained authority configuration'); END""",
+)
+
+AUTHORITY_IMMUTABLE = ("policies", "approvals", "revocations", "evidence", "authority_denials")
