@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "work-steward-engine"
 version = "0.1.0.dev0"
-description = "Experimental reference model and synthetic provider for dependable agent execution"
+description = "Experimental execution engine with a synthetic inventory reference workflow"
 requires-python = ">=3.13,<3.14"
 license = "Apache-2.0"
 readme = "README.md"
@@ -27,10 +27,11 @@ work-steward-simulator = "work_steward.simulator.server:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra"
 
 [tool.coverage.run]
-source = ["src/work_steward", "scripts"]
+source = ["src/work_steward", "scripts", "examples"]
 branch = true
 parallel = true
 concurrency = ["thread", "multiprocessing"]

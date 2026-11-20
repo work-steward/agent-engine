@@ -376,7 +376,7 @@ def test_unrecognized_database_and_newer_schema_are_rejected(tmp_path, ledger):
         ]
         assert db.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
     with sqlite3.connect(ledger.path) as db:
-        db.execute("PRAGMA user_version=3")
+        db.execute("PRAGMA user_version=4")
     with pytest.raises(LedgerFormatError):
         Ledger(ledger.path, organization_id="org-1")
     with pytest.raises(LedgerFormatError):

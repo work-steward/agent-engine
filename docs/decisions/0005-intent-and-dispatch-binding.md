@@ -1,6 +1,6 @@
 # ADR 0005: Canonical intent and exact dispatch binding
 
-Status: accepted; dispatch mapping pending.
+Status: accepted.
 
 ## Decision
 

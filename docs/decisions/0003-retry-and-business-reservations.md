@@ -1,6 +1,6 @@
 # ADR 0003: Repetition evidence and business reservations
 
-Status: accepted; durable reservations implemented, real proof admission pending.
+Status: accepted.
 
 ## Decision
 

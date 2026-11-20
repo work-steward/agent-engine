@@ -2,7 +2,7 @@
 
 Work Steward is building a self-hostable execution engine for AI-assisted business workflows. Its goal is to keep business actions within approved limits, preserve their history across restarts, and make uncertain outcomes visible.
 
-**Status: experimental.** Local engine components and synthetic tests are implemented. Production dispatch and real connectors are still planned. Use synthetic data only.
+**Status: experimental.** Run the synthetic inventory workflow locally without credentials or a model API key. It uses CLI proposals and a separate warehouse simulator. Use synthetic data only; real integrations remain unsupported.
 
 ## Why this exists
 
@@ -14,20 +14,20 @@ Work Steward separates what was requested, what was allowed, what was attempted,
 
 ## How it works
 
-The local engine records an exact action, checks permission, and persists an attempt. A planned dispatcher will connect it to business systems:
+The engine prepares an exact request for approval, checks current permission, and records each attempt before a single HTTP send:
 
 ```mermaid
 flowchart LR
-    P["Proposed action"] --> I["Record exact action"]
-    I --> A["Check approval and record attempt"]
-    A -.->|Planned dispatch| S["Business system"]
+    P["Stock receipt proposal"] --> I["Prepare exact request"]
+    I --> A["Approve and record attempt"]
+    A --> S["Synthetic warehouse"]
 ```
 
-- **Permissions:** approvals bind an exact action and policy revision. Before an attempt, the engine checks current scope, evidence, expiry, and revocation.
+- **Permissions:** approvals bind exact intent, request, and policy revision. Admission and release check current scope, evidence, expiry, and revocation.
 - **Durable records:** SQLite commits state and journal changes together, rejects stale updates, and retains business-key reservations to detect repeated submissions.
 - **Explicit uncertainty:** timeouts do not prove failure, and cancellation cannot undo an action that may already have reached another system.
 
-The target recovery flow uses evidence from the business system. Evidence verification and reconciliation are still planned:
+After a lost response, the engine admits only evidence tied to the recorded request. Missing status leaves the outcome unknown:
 
 ```mermaid
 flowchart LR
@@ -42,10 +42,10 @@ flowchart LR
 
 | Area | Today |
 | --- | --- |
-| Engine | Typed intents, action reference model, durable ledger and reservations, local policy and approvals |
-| Test environment | Independent HTTP provider simulator; crash, response-loss, concurrency, and revocation cases |
-| Supported setup | Trusted host, local SQLite, one organization per database |
-| Remaining work | Caller authentication, request mapping and dispatch, provider-proof verification and reconciliation, real connectors, operator API/CLI |
+| Engine | Durable state, exact request/approval bindings, fenced dispatch, and verified synthetic outcomes |
+| Reference workflow | Inventory adjustments with an operator CLI and repeatable failure scenarios |
+| Supported setup | Trusted macOS/Linux host, local SQLite, one organization and bound provider account per database |
+| Later work | Real connectors, external caller authentication, model integration, and a nontechnical workbench |
 
 The [architecture](docs/architecture.md) maps components to code and tests. The [roadmap](docs/ROADMAP.md) and [conformance gates](docs/conformance.md) describe the remaining work and required evidence.
 
@@ -55,10 +55,10 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run:
 
 ```sh
 uv sync --frozen
-make check
+make demo
 ```
 
-Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock). Checks include lint, fault tests, and a coverage gate. See [development](docs/DEVELOPMENT.md) for simulator and storage usage.
+See the [inventory guide](examples/inventory/README.md) for scenarios and manual approvals. Run `make check` for lint, fault tests, and the coverage gate. Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock).
 
 ## Project guides
 

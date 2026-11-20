@@ -1,7 +1,7 @@
 """Engine storage, separate from the provider database."""
 
 APPLICATION_ID = 0x57534C44  # WSLD
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = (
     """CREATE TABLE ledger_meta (
@@ -118,3 +118,45 @@ AUTHORITY_SCHEMA = (
 )
 
 AUTHORITY_IMMUTABLE = ("policies", "approvals", "revocations", "evidence", "authority_denials")
+
+DISPATCH_SCHEMA = (
+    "ALTER TABLE approvals ADD COLUMN request_digest TEXT",
+    """CREATE TABLE connector (
+        singleton INTEGER PRIMARY KEY CHECK(singleton=1), binding BLOB NOT NULL
+    ) STRICT""",
+    """CREATE TABLE prepared_requests (
+        operation_id TEXT PRIMARY KEY REFERENCES operations(operation_id),
+        request BLOB NOT NULL, digest TEXT NOT NULL
+    ) STRICT""",
+    """CREATE TABLE dispatch_requests (
+        operation_id TEXT NOT NULL, attempt_id TEXT NOT NULL,
+        request BLOB NOT NULL, digest TEXT NOT NULL,
+        approval_id TEXT NOT NULL REFERENCES approvals(approval_id),
+        PRIMARY KEY(operation_id,attempt_id),
+        FOREIGN KEY(operation_id,attempt_id) REFERENCES attempts(operation_id,attempt_id)
+    ) STRICT""",
+    """CREATE TABLE provider_responses (
+        response_id TEXT PRIMARY KEY,
+        operation_id TEXT NOT NULL REFERENCES operations(operation_id),
+        source TEXT NOT NULL, attempt_id TEXT, status INTEGER, body BLOB NOT NULL,
+        admitted INTEGER NOT NULL CHECK(admitted IN (0,1)), error TEXT, at INTEGER NOT NULL
+    ) STRICT""",
+    """CREATE TABLE read_grants (
+        grant_id TEXT PRIMARY KEY, actor TEXT NOT NULL, account TEXT NOT NULL,
+        capability TEXT NOT NULL, resources BLOB NOT NULL, issued_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL CHECK(expires_at>issued_at), administrator TEXT NOT NULL
+    ) STRICT""",
+    """CREATE TABLE read_revocations (
+        grant_id TEXT PRIMARY KEY REFERENCES read_grants(grant_id),
+        actor TEXT NOT NULL, reason TEXT NOT NULL, at INTEGER NOT NULL
+    ) STRICT""",
+)
+
+DISPATCH_IMMUTABLE = (
+    "connector",
+    "prepared_requests",
+    "dispatch_requests",
+    "provider_responses",
+    "read_grants",
+    "read_revocations",
+)

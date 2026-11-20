@@ -1,15 +1,13 @@
 # Roadmap
 
-The [code map](architecture.md) lists implemented components. Complete execution guarantees remain pending.
+The first public MVP is the [synthetic inventory workflow](../examples/inventory/README.md). It exercises durable approvals, bound dispatch, reconciliation, recovery, and proof-gated repetition without real integrations. The [code map](architecture.md) and [conformance evidence](conformance.md) define its scope.
 
-## Next: durable kernel
+## Before public release
 
-1. Connect a trusted adapter and dispatcher. Bind the exact request to approved intent and durably record the possible-send boundary before transmission.
-2. Admit typed provider evidence, reconcile uncertain outcomes, and permit repetition only under the supported proof rules.
-3. Exercise integrated engine crashes, stale workers, and restart recovery against the independent provider. Meet the [conformance gates](conformance.md).
+Review the example and tested claims, complete the [release controls](REPOSITORY_SECURITY.md), and obtain explicit visibility/release approval. Repository visibility remains an administrative action.
 
 ## Later
 
-An independently usable engine needs a supported real connector, durable human approvals and model results, and an API/CLI. Choose the reference business workflow against familiarity, expert access, verifiability, external-effect semantics, recoverability, and cost; payment examples do not preselect that domain.
+Real connectors, externally authenticated operators, durable model results, and broader workflow APIs follow the synthetic milestone. Each connector needs evidence for its own idempotency, status, condition, and reconciliation semantics.
 
 A nontechnical workbench follows on the same engine. General executable plugins, broad multi-agent orchestration, distributed scheduling, shared-runtime multi-tenancy, and automatic provider failover remain deferred. Validate each new supported boundary before extending its guarantees.

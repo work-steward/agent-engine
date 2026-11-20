@@ -27,15 +27,43 @@ from work_steward.simulator.store import Behavior, ProviderConflict, ProviderSto
 
 def test_permanent_key_survives_forced_provider_restart(provider):
     with provider() as p:
+        profile = p.request("GET", "/v1/profile")[1]
         status, record = p.submit()
         assert status == 200 and record["outcome"] == "effect_confirmed"
         database = p.database
         p.process.kill()
         p.process.wait(timeout=5)
     with provider(database=database) as restarted:
+        assert restarted.request("GET", "/v1/profile")[1] == profile
         status, cached = restarted.submit(attempt="attempt-2")
         assert status == 200 and cached == record
         assert restarted.oracle() == (1, 1)
+
+
+def test_provider_identity_condition_prevents_effects_on_a_replaced_destination(provider):
+    with provider() as p:
+        body = json.dumps(
+            {
+                "operation_id": "op",
+                "account": "a",
+                "resource": "r",
+                "quantity": 1,
+                "resource_version": None,
+            }
+        ).encode()
+        status, _ = p.request(
+            "POST",
+            "/v1/effects",
+            body=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-WS-Attempt-ID": "a1",
+                "Idempotency-Key": "key",
+                "X-WS-Provider-ID": "0" * 32,
+            },
+        )
+        assert status == 400 and p.oracle() == (0, 0)
+        assert p.request("GET", "/v1/profile?override=true")[0] == 400
 
 
 def test_effect_survives_loss_of_response_and_client_termination(provider, tmp_path):
@@ -447,3 +475,26 @@ def test_provider_rejects_invalid_profile_and_quantity_overflow(tmp_path):
     unkeyed = ProviderStore(tmp_path / "unkeyed.sqlite", idempotency=Idempotency.NONE)
     with pytest.raises(ValidationError):
         unkeyed.submit(body, attempt_id="a1", provider_key="unexpected")
+
+
+def test_legacy_provider_receipts_do_not_acquire_inferred_key_evidence(tmp_path):
+    path = tmp_path / "legacy.sqlite"
+    original = ProviderStore(path)
+    body = {
+        "operation_id": "op",
+        "account": "a",
+        "resource": "r",
+        "quantity": 1,
+        "resource_version": None,
+    }
+    original.submit(body, attempt_id="a1", provider_key="key-1")
+    with sqlite3.connect(path) as db:
+        db.execute("ALTER TABLE effects DROP COLUMN provider_key")
+    reopened = ProviderStore(path)
+    assert reopened.lookup(account="a", operation_id="op")["records"][0]["provider_key"] is None
+    assert (
+        reopened.submit({**body, "operation_id": "op2"}, attempt_id="a2", provider_key="key-2")[
+            "provider_key"
+        ]
+        == "key-2"
+    )

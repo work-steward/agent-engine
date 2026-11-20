@@ -9,7 +9,7 @@ from work_steward.authority import Authority, AuthorizationDenied, Policy
 from work_steward.canonical import ValidationError
 from work_steward.intent import Consistency, EvidenceRef
 from work_steward.ledger import Command, Ledger, LedgerConflict, LedgerFormatError
-from work_steward.ledger_schema import AUTHORITY_IMMUTABLE, SCHEMA_VERSION
+from work_steward.ledger_schema import AUTHORITY_IMMUTABLE, DISPATCH_IMMUTABLE, SCHEMA_VERSION
 from work_steward.model import Disposition, Effect, Idempotency, Phase, TransitionError
 
 
@@ -317,7 +317,7 @@ def test_grant_or_revocation_and_state_roll_back_on_journal_failure(
 
 def downgrade_reference_fixture(path):
     with sqlite3.connect(path) as db:
-        for table in (*AUTHORITY_IMMUTABLE, "authority_config"):
+        for table in (*DISPATCH_IMMUTABLE, *AUTHORITY_IMMUTABLE, "authority_config"):
             db.execute(f"DROP TABLE {table}")
         db.execute("ALTER TABLE ledger_meta DROP COLUMN mode")
         db.execute("PRAGMA user_version=1")

@@ -1,4 +1,4 @@
-.PHONY: lint format test check
+.PHONY: lint format test check demo
 
 lint:
 	uv run --frozen ruff check .
@@ -19,3 +19,6 @@ test:
 	uv run --frozen coverage report
 
 check: lint test
+
+demo:
+	uv run --frozen python -m examples.inventory run

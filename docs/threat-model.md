@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-The supported test environment is a trusted host with local SQLite storage and synthetic data. Python, SQLite/VFS, the OS, dependencies, HTTP stack, and application code are trusted. The future kernel starts with one engine instance and one organization per instance.
+The supported environment is one trusted host with local SQLite and synthetic data. Python, SQLite/VFS, the OS, dependencies, HTTP stack, and application code are trusted. Each ledger binds one organization and synthetic provider account.
 
 | Component | Boundary |
 | --- | --- |
@@ -10,6 +10,8 @@ The supported test environment is a trusted host with local SQLite storage and s
 | Reference reducer | Trusted policy/evidence events; no persistence or actual network authority. |
 | Engine ledger | Durable storage of trusted model commands; no caller authentication, policy verification, receipt verification, or transport. |
 | Authority controller | Governed-mode policy/approval checks; host-authenticated caller identities, evidence provenance, and clock configuration remain trusted. |
+| Dispatcher/verifier | One fixed loopback adapter and declared synthetic contract; instance headers are routing conditions, not authentication. |
+| Inventory CLI | Local POSIX UID is the operator; script-controlled fault barriers stay in the example harness. |
 | Provider simulator | Independent process/database with an unauthenticated loopback HTTP interface. |
 | Test harness | May control faults and inspect hidden provider state; that oracle must never authorize controller actions. |
 
@@ -25,4 +27,4 @@ Fail closed on invalid authority, unsupported consistency, failed transactions, 
 
 Malicious host/root administrators, privileged runtime compromise, dishonest storage, provider violations of stated guarantees, arbitrary executable connectors with raw credentials/network access, and stale-backup restoration are outside the initial guarantee. Power-loss durability depends on the selected storage assumptions. A simulated contradiction can trigger escalation; it cannot establish independent truth about a dishonest provider.
 
-There is no model integration, general prompt-injection immunity, arbitrary-code sandbox, production credential broker, encrypted context store, or real connector in the current package. Those require separate designs and adversarial tests before support is claimed.
+There is no model integration, network authentication service, general prompt-injection immunity, arbitrary-code sandbox, production credential broker, encrypted context store, or real connector. Those require separate designs and adversarial tests.
