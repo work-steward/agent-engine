@@ -5,7 +5,7 @@ import time
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from work_steward.authority import Policy
-from work_steward.canonical import integer, text
+from work_steward.canonical import ValidationError, integer, text
 from work_steward.engine import Engine
 from work_steward.intent import Consistency, EvidenceRef, Intent
 from work_steward.ledger import LedgerConflict, OperationNotFound
@@ -78,8 +78,11 @@ class Inventory:
         )
         return snapshot
 
-    def propose(self, request_id: str, quantity: int):
+    def propose(self, request_id: str, quantity: int, *, conditional: bool = True):
         integer(quantity, "quantity", minimum=1)
+        if type(conditional) is not bool:
+            raise ValidationError("Conditional must be a boolean")
+        consistency = Consistency.C2 if conditional else Consistency.C0
         identity = operation_id(request_id)
         try:
             old = self.engine.ledger.get(identity)
@@ -91,7 +94,9 @@ class Inventory:
                 old.intent.resource,
                 old.intent.quantity,
                 old.intent.business_effect_key,
-            ) != (WAREHOUSE, SKU, quantity, request_id):
+                old.intent.consistency,
+                old.intent.resource_version is not None,
+            ) != (WAREHOUSE, SKU, quantity, request_id, consistency, conditional):
                 raise LedgerConflict("Business request already has a different stock adjustment")
             if self.engine.inspect(identity)["prepared_request"] is None:
                 return self.engine.prepare(identity)
@@ -107,8 +112,8 @@ class Inventory:
             WAREHOUSE,
             SKU,
             quantity,
-            snapshot["version"],
-            Consistency.C2,
+            snapshot["version"] if conditional else None,
+            consistency,
             ADAPTER_ID,
             ADAPTER_DIGEST,
             (EvidenceRef(SKU, "inventory-version", str(snapshot["version"])),),

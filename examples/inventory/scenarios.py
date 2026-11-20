@@ -14,6 +14,7 @@ SCENARIOS = (
     "revocation",
     "stale-evidence",
     "lost-response",
+    "unsafe-retry",
     "crash-before-send",
     "crash-after-send",
     "safe-retry",
@@ -48,12 +49,22 @@ def _worker(database, actor, identity, point, pipe):
 
 def run(workflow, scenario: str, request_id: str = "receipt-001") -> dict:
     engine, actor = workflow.engine, workflow.actor
-    action = workflow.propose(request_id, 10)
+    action = workflow.propose(request_id, 10, conditional=scenario != "unsafe-retry")
     checkpoints = []
     if action.effect is not Effect.CONFIRMED:
         workflow.approve(request_id)
         identity = operation_id(request_id)
-        if scenario in {"crash-before-send", "crash-after-send", "safe-retry", "unknown"}:
+        if scenario == "unsafe-retry":
+            checkpoints.append(
+                action.effect.value
+                if action.attempts
+                else engine.dispatch(identity, actor=actor).effect.value
+            )
+            try:
+                engine.dispatch(identity, actor=actor, repeat=True)
+            except TransitionError:
+                checkpoints.append("unsafe_retry_blocked")
+        elif scenario in {"crash-before-send", "crash-after-send", "safe-retry", "unknown"}:
             point = {
                 "crash-before-send": "admitted",
                 "crash-after-send": "received",

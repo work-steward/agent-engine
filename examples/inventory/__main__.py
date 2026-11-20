@@ -60,8 +60,10 @@ def main(argv=None) -> int:
                 )
             scenario = args.scenario if args.command == "run" else "manual"
             settings = {
-                "profile": "none" if scenario == "unknown" else "permanent",
-                "behavior": "drop_after_apply" if scenario == "lost-response" else "apply",
+                "profile": "none" if scenario in {"unknown", "unsafe-retry"} else "permanent",
+                "behavior": "drop_after_apply"
+                if scenario in {"lost-response", "unsafe-retry"}
+                else "apply",
             }
             settings_path.write_bytes(canonical_bytes(settings))
         authority = Authority(

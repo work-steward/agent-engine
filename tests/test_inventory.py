@@ -17,9 +17,9 @@ def test_business_scenarios_use_engine_and_independent_warehouse(tmp_path, capsy
         assert result["attempts"] == 0
         assert "dispatch_blocked" in result["checkpoints"]
         assert result["stock"]["quantity"] == int(scenario == "stale-evidence")
-    elif scenario == "unknown":
+    elif scenario in {"unknown", "unsafe-retry"}:
         assert result["effect"] == "unknown"
-        assert result["stock"]["quantity"] == 0
+        assert result["stock"]["quantity"] == (10 if scenario == "unsafe-retry" else 0)
         assert "unsafe_retry_blocked" in result["checkpoints"]
         assert result["attempts"] == 1
     else:
@@ -35,6 +35,50 @@ def test_business_scenarios_use_engine_and_independent_warehouse(tmp_path, capsy
     assert detail["history"][-1]["version"] == detail["version"]
     assert detail["approvals"][-1]["request_digest"] == detail["prepared_request"]["digest"]
     assert all(entry["assessment"] != "not_attempted" for entry in detail["observations"])
+    if scenario == "unsafe-retry":
+        assert detail["intent"]["consistency"] == "C0"
+        assert detail["intent"]["resource_version"] is None
+        assert detail["responses"][0]["transport_error"] == "transport_unavailable"
+
+
+def test_lost_unkeyed_response_blocks_retry_until_receipt_reconciliation(tmp_path, capsys):
+    prefix = ["--directory", str(tmp_path)]
+    for _ in range(2):
+        assert main([*prefix, "run", "--scenario", "unsafe-retry"]) == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["checkpoints"] == ["unknown", "unsafe_retry_blocked"]
+        assert result["attempts"] == 1 and result["stock"]["quantity"] == 10
+    prefix = ["--directory", str(tmp_path / "unsafe-retry")]
+    assert main([*prefix, "retry", "receipt-001"]) == 2
+    assert json.loads(capsys.readouterr().out)["error"] == "TransitionError"
+    assert main([*prefix, "propose", "receipt-001"]) == 2
+    assert json.loads(capsys.readouterr().out)["error"] == "LedgerConflict"
+    assert main([*prefix, "reconcile", "receipt-001"]) == 0
+    detail = json.loads(capsys.readouterr().out)
+    assert detail["effect"] == "effect_confirmed" and len(detail["attempts"]) == 1
+    assert main([*prefix, "refresh"]) == 0
+    assert json.loads(capsys.readouterr().out)["quantity"] == 10
+
+
+def test_existing_proposal_cannot_drop_its_version_condition(tmp_path, capsys):
+    from examples.inventory.workflow import ORGANIZATION, Inventory, operator
+    from work_steward.authority import Authority
+    from work_steward.canonical import ValidationError
+    from work_steward.engine import Engine
+    from work_steward.ledger import LedgerConflict
+
+    assert main(["--directory", str(tmp_path), "propose", "receipt"]) == 0
+    capsys.readouterr()
+    authority = Authority(
+        tmp_path / "engine.sqlite",
+        organization_id=ORGANIZATION,
+        administrators=frozenset({operator()}),
+    )
+    workflow = Inventory(Engine(authority), actor=operator())
+    with pytest.raises(LedgerConflict):
+        workflow.propose("receipt", 10, conditional=False)
+    with pytest.raises(ValidationError, match="boolean"):
+        workflow.propose("receipt", 10, conditional="false")
 
 
 def test_cli_manual_approval_and_repeat_submission(tmp_path, capsys):
