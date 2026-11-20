@@ -12,4 +12,4 @@ Scope evidence by account, capability, subject, and predicate to prevent reuse a
 
 Host code must authenticate actors and establish evidence provenance; proposal fields cannot supply these facts. Administrator bindings are immutable across reopens. Trusted Python callers are not isolated from each other.
 
-Cached authority fields and persisted boundaries grant no transport access. Wire binding, provider-proof verification, and dispatch remain pending. The clock floor covers committed observations under the storage assumptions, not independent trusted time.
+Cached authority fields and persisted boundaries grant no transport access. [Engine dispatch](0008-synthetic-dispatch.md) supplies the separate wire and synthetic-proof checks. The clock floor covers committed observations under the storage assumptions, not independent trusted time.

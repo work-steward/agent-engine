@@ -12,6 +12,8 @@ from .ledger_schema import (
     APPLICATION_ID,
     AUTHORITY_IMMUTABLE,
     AUTHORITY_SCHEMA,
+    DISPATCH_IMMUTABLE,
+    DISPATCH_SCHEMA,
     IMMUTABLE_TABLES,
     SCHEMA,
     SCHEMA_VERSION,
@@ -151,11 +153,15 @@ class Ledger:
             for sql in AUTHORITY_SCHEMA:
                 db.execute(sql)
             self._retain(db, AUTHORITY_IMMUTABLE)
+        if application == APPLICATION_ID and version in (1, 2):
+            for sql in DISPATCH_SCHEMA:
+                db.execute(sql)
+            self._retain(db, DISPATCH_IMMUTABLE)
             db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         if application == 0:
-            for sql in (*SCHEMA, *AUTHORITY_SCHEMA):
+            for sql in (*SCHEMA, *AUTHORITY_SCHEMA, *DISPATCH_SCHEMA):
                 db.execute(sql)
-            self._retain(db, (*IMMUTABLE_TABLES, *AUTHORITY_IMMUTABLE))
+            self._retain(db, (*IMMUTABLE_TABLES, *AUTHORITY_IMMUTABLE, *DISPATCH_IMMUTABLE))
             db.execute(
                 "INSERT INTO ledger_meta VALUES (1,?,?)", (self.organization_id, self.mode.value)
             )
@@ -179,7 +185,7 @@ class Ledger:
         version = db.execute("PRAGMA user_version").fetchone()[0]
         if (application, version) == (APPLICATION_ID, SCHEMA_VERSION):
             return
-        if allow_legacy and (application, version) == (APPLICATION_ID, 1):
+        if allow_legacy and application == APPLICATION_ID and version in (1, 2):
             return
         if (
             allow_empty

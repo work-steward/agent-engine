@@ -256,6 +256,10 @@ class Authority:
             old = db.execute(
                 "SELECT * FROM approvals WHERE approval_id=?", (approval_id,)
             ).fetchone()
+            prepared = db.execute(
+                "SELECT digest FROM prepared_requests WHERE operation_id=?", (operation_id,)
+            ).fetchone()
+            request_digest = prepared[0] if prepared else None
             if old is not None:
                 if (
                     old["operation_id"],
@@ -263,7 +267,15 @@ class Authority:
                     old["policy_revision"],
                     old["actor"],
                     old["expires_at"],
-                ) != (operation_id, before.intent.intent_digest, revision, actor, expires_at):
+                    old["request_digest"],
+                ) != (
+                    operation_id,
+                    before.intent.intent_digest,
+                    revision,
+                    actor,
+                    expires_at,
+                    request_digest,
+                ):
                     raise LedgerConflict("Approval identity has another immutable binding")
                 return before
             if before.disposition is Disposition.CLOSED or before.effect is Effect.CONFLICTING:
@@ -273,8 +285,8 @@ class Authority:
             self._scope(db, before, policy, now)
             db.execute(
                 "INSERT INTO approvals(approval_id,operation_id,intent_digest,policy_revision,"
-                "actor,issued_at,expires_at) "
-                "VALUES (?,?,?,?,?,?,?)",
+                "actor,issued_at,expires_at,request_digest) "
+                "VALUES (?,?,?,?,?,?,?,?)",
                 (
                     approval_id,
                     operation_id,
@@ -283,6 +295,7 @@ class Authority:
                     actor,
                     now,
                     expires_at,
+                    request_digest,
                 ),
             )
             after = before.set_authority(authorized=True, evidence_valid=True)
@@ -298,6 +311,7 @@ class Authority:
                     "actor": actor,
                     "policy_revision": revision,
                     "at": now,
+                    "request_digest": request_digest,
                 },
             )
         return after
@@ -350,22 +364,7 @@ class Authority:
         text(operation_id, "operation_id")
         integer(expected_version, "expected_version")
         with self._write() as (db, now):
-            before = self.ledger._load(db, operation_id)
-            if before.version != expected_version:
-                raise TransitionError("Stale authoritative state version")
-            revision, policy = self._policy(db)
-            grant = self._approval(db, operation_id)
-            if (
-                grant is None
-                or grant["intent_digest"] != before.intent.intent_digest
-                or grant["policy_revision"] != revision
-                or grant["expires_at"] <= now
-                or db.execute(
-                    "SELECT 1 FROM revocations WHERE approval_id=?", (grant["approval_id"],)
-                ).fetchone()
-            ):
-                raise AuthorizationDenied("Current approval is missing, expired, revoked, or stale")
-            self._scope(db, before, policy, now)
+            before, revision, grant = self._checked(db, operation_id, expected_version, now)
             method = before.cross_send_boundary if send else before.admit
             after = method(attempt_id, expected_version=expected_version, generation=generation)
             self._save(
@@ -382,6 +381,112 @@ class Authority:
                 },
             )
         return after
+
+    def _checked(self, db, operation_id: str, expected_version: int, now: int):
+        before = self.ledger._load(db, operation_id)
+        if before.version != expected_version:
+            raise TransitionError("Stale authoritative state version")
+        revision, policy = self._policy(db)
+        grant = self._approval(db, operation_id)
+        if (
+            grant is None
+            or grant["intent_digest"] != before.intent.intent_digest
+            or grant["policy_revision"] != revision
+            or grant["expires_at"] <= now
+            or db.execute(
+                "SELECT 1 FROM revocations WHERE approval_id=?", (grant["approval_id"],)
+            ).fetchone()
+        ):
+            raise AuthorizationDenied("Current approval is missing, expired, revoked, or stale")
+        self._scope(db, before, policy, now)
+        return before, revision, grant
+
+    def permit_read(
+        self,
+        grant_id: str,
+        *,
+        actor: str,
+        account: str,
+        capability: str,
+        resources: frozenset[str],
+        expires_at: int,
+        administrator: str,
+    ):
+        for name, value in (
+            ("grant_id", grant_id),
+            ("actor", actor),
+            ("account", account),
+            ("capability", capability),
+        ):
+            text(value, name)
+        integer(expires_at, "expires_at")
+        if type(resources) is not frozenset or not 1 <= len(resources) <= 32:
+            raise ValidationError("Read scope requires a bounded set of resources")
+        for resource in resources:
+            text(resource, "resource")
+        binding = (actor, account, capability, canonical_bytes(sorted(resources)), expires_at)
+        with self._write() as (db, now):
+            self._admin(administrator)
+            if not now < expires_at <= now + 86400:
+                raise AuthorizationDenied("Read permission expiry is outside bounds")
+            old = db.execute(
+                "SELECT actor,account,capability,resources,expires_at FROM read_grants "
+                "WHERE grant_id=?",
+                (grant_id,),
+            ).fetchone()
+            if old is not None:
+                if tuple(old) != binding:
+                    raise LedgerConflict("Read grant identity has another binding")
+                return
+            db.execute(
+                "INSERT INTO read_grants VALUES (?,?,?,?,?,?,?,?)",
+                (grant_id, *binding[:4], now, expires_at, administrator),
+            )
+
+    def revoke_read(self, grant_id: str, *, actor: str, reason: str):
+        text(grant_id, "grant_id")
+        text(reason, "reason")
+        with self._write() as (db, now):
+            self._admin(actor)
+            if (
+                db.execute("SELECT 1 FROM read_grants WHERE grant_id=?", (grant_id,)).fetchone()
+                is None
+            ):
+                raise LedgerConflict("Unknown read grant")
+            db.execute(
+                "INSERT INTO read_revocations VALUES (?,?,?,?) ON CONFLICT(grant_id) DO NOTHING",
+                (grant_id, actor, reason, now),
+            )
+
+    @staticmethod
+    def _read_permission(db, *, actor: str, account: str, capability: str, resource: str, now: int):
+        text(actor, "actor")
+        grants = db.execute(
+            "SELECT resources FROM read_grants g WHERE actor=? AND account=? "
+            "AND capability=? AND expires_at>? AND NOT EXISTS "
+            "(SELECT 1 FROM read_revocations r WHERE r.grant_id=g.grant_id)",
+            (actor, account, capability, now),
+        )
+        if not any(resource in parse_json(row[0]) for row in grants):
+            raise AuthorizationDenied("Current reconciliation permission required")
+
+    def current_policy(self) -> tuple[int, Policy] | None:
+        with self.ledger._transaction() as db:
+            if not db.execute("SELECT 1 FROM policies LIMIT 1").fetchone():
+                return None
+            return self._policy(db)
+
+    def evidence_revision(
+        self, *, account: str, capability: str, subject: str, predicate: str
+    ) -> int:
+        for value in (account, capability, subject, predicate):
+            text(value, "evidence scope")
+        with self.ledger._transaction() as db:
+            return db.execute(
+                "SELECT coalesce(max(revision),0) FROM evidence "
+                "WHERE account=? AND capability=? AND subject=? AND predicate=?",
+                (account, capability, subject, predicate),
+            ).fetchone()[0]
 
     def admit(
         self, operation_id: str, *, expected_version: int, generation: int, attempt_id: str

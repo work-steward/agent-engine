@@ -41,6 +41,7 @@ class ProviderHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Connection", "close")
+        self.send_header("X-WS-Provider-ID", self.server.store.provider_id)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -53,6 +54,7 @@ class ProviderHandler(BaseHTTPRequestHandler):
             "accept-encoding",
             "connection",
             "user-agent",
+            "x-ws-provider-id",
         }
         if post:
             allowed |= {"x-ws-attempt-id", "idempotency-key"}
@@ -62,8 +64,14 @@ class ProviderHandler(BaseHTTPRequestHandler):
         host, port = self.server.server_address
         if self.headers.get("Host") != f"{host}:{port}":
             raise ValidationError("Destination authority mismatch")
+        if (
+            self.headers.get("X-WS-Provider-ID", self.server.store.provider_id)
+            != self.server.store.provider_id
+        ):
+            raise ValidationError("Provider identity mismatch")
         parsed = urlsplit(self.path)
-        if parsed.scheme or parsed.netloc or parsed.fragment or parsed.path != "/v1/effects":
+        paths = {"/v1/effects"} if post else {"/v1/effects", "/v1/profile", "/v1/resources"}
+        if parsed.scheme or parsed.netloc or parsed.fragment or parsed.path not in paths:
             raise ValidationError("Unsupported request target")
         if post:
             if parsed.query or self.headers.get("Content-Type") != "application/json":
@@ -81,6 +89,10 @@ class ProviderHandler(BaseHTTPRequestHandler):
             return parse_json(data), self.headers.get("Idempotency-Key")
         if self.headers.get("Content-Length", "0") != "0":
             raise ValidationError("Lookup body unsupported")
+        if parsed.path == "/v1/profile":
+            if parsed.query:
+                raise ValidationError("Profile query unsupported")
+            return {}, None
         query = parse_qs(
             parsed.query,
             keep_blank_values=True,
@@ -89,7 +101,8 @@ class ProviderHandler(BaseHTTPRequestHandler):
             encoding="utf-8",
             errors="strict",
         )
-        if set(query) != {"account", "operation_id"} or any(len(v) != 1 for v in query.values()):
+        selector = "resource" if parsed.path == "/v1/resources" else "operation_id"
+        if set(query) != {"account", selector} or any(len(v) != 1 for v in query.values()):
             raise ValidationError("Unsupported lookup query")
         return {key: values[0] for key, values in query.items()}, None
 
@@ -116,7 +129,14 @@ class ProviderHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         try:
             query, _ = self._validate(post=False)
-            self._reply(200, self.server.store.lookup(**query))
+            path = urlsplit(self.path).path
+            if path == "/v1/profile":
+                result = self.server.store.profile()
+            elif path == "/v1/resources":
+                result = self.server.store.snapshot(**query)
+            else:
+                result = self.server.store.lookup(**query)
+            self._reply(200, result)
         except (ValidationError, ValueError, TimeoutError):
             self._reply(400, {"error": "invalid_request"})
         except sqlite3.Error:

@@ -1,6 +1,6 @@
 # ADR 0002: Independent state and a fenced send boundary
 
-Status: accepted; durable enforcement pending.
+Status: accepted.
 
 ## Decision
 

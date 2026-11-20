@@ -1,15 +1,24 @@
 # Roadmap
 
-The [code map](architecture.md) lists implemented components. Complete execution guarantees remain pending.
+The [synthetic inventory MVP](../examples/inventory/README.md) implements durable approvals, bound dispatch, verified reconciliation, proof-gated repetition, and recovery against an independent provider. Integrated crash and stale-sender tests complete the three durable-kernel implementation stories. The [code map](architecture.md) and [conformance evidence](conformance.md) bound these claims.
 
-## Next: durable kernel
+## Before public release
 
-1. Connect a trusted adapter and dispatcher. Bind the exact request to approved intent and durably record the possible-send boundary before transmission.
-2. Admit typed provider evidence, reconcile uncertain outcomes, and permit repetition only under the supported proof rules.
-3. Exercise integrated engine crashes, stale workers, and restart recovery against the independent provider. Meet the [conformance gates](conformance.md).
+| Pending story | Done when |
+| --- | --- |
+| Public release review | History, secrets, licenses, artifacts, tested claims, and reporting channels pass the [release controls](REPOSITORY_SECURITY.md). |
+| Publication and enforced protections | The project lead approves visibility/release; administrators verify protections, required checks, access, and contributor workflow settings. Private GitHub Free remains the current choice. |
 
 ## Later
 
-An independently usable engine needs a supported real connector, durable human approvals and model results, and an API/CLI. Choose the reference business workflow against familiarity, expert access, verifiability, external-effect semantics, recoverability, and cost; payment examples do not preselect that domain.
+These stories follow the synthetic MVP; they do not block its release.
 
-A nontechnical workbench follows on the same engine. General executable plugins, broad multi-agent orchestration, distributed scheduling, shared-runtime multi-tenancy, and automatic provider failover remain deferred. Validate each new supported boundary before extending its guarantees.
+| Pending story | Done when |
+| --- | --- |
+| Authenticated operators | An external identity boundary enforces scoped approval, read, revocation, and audit permissions. |
+| First real connector | Credential handling and provider-specific idempotency, status, conditions, and reconciliation have demonstrated evidence. |
+| Durable model results | Model proposals/results have stable identity and persisted provenance; restart cannot silently rerun completed model work. |
+| Broader workflow API/CLI | Supported workflow steps and transitions can be composed without embedding the inventory example. |
+| Nontechnical workbench | Operators can inspect, approve, cancel, and investigate outcomes through the same governed engine. |
+
+General executable plugins, broad multi-agent orchestration, distributed scheduling, shared-runtime multi-tenancy, and automatic provider failover remain deferred. Validate each new supported boundary before extending its guarantees.

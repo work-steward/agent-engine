@@ -42,5 +42,5 @@ jobs:
         run: uv sync --frozen
       - name: Lint Python, Markdown, YAML, and repository files
         run: make lint
-      - name: Test model and independent simulator
+      - name: Test engine, example, and fault recovery
         run: make test

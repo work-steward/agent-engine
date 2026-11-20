@@ -11,5 +11,6 @@ ADRs explain why a consequential choice was made and what constrains future chan
 | [0005](0005-intent-and-dispatch-binding.md) | Typed canonicalization and exact request binding |
 | [0006](0006-conformance-and-claims.md) | Executable conformance evidence and bounded claims |
 | [0007](0007-local-authority.md) | Governed local policy and immutable approvals |
+| [0008](0008-synthetic-dispatch.md) | Bound dispatch, verified synthetic evidence, and explicit repetition proof |
 
 Original product-discovery notes remain in [Git history](https://github.com/work-steward/agent-engine/blob/b267f0d19aaca659c05094d10f2cd865461e0f81/docs/ARCHITECTURE_HANDOFF.md). They preserve provenance; current behavior is defined by the code/tests, with maintained constraints in these ADRs and the [roadmap](../ROADMAP.md).

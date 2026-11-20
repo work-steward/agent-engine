@@ -5,6 +5,7 @@ import sqlite3
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
+from uuid import uuid4
 
 from ..canonical import (
     CanonicalSizeError,
@@ -76,13 +77,26 @@ class ProviderStore:
                 "quantity INTEGER NOT NULL, resource_version INTEGER, "
                 "request_digest TEXT NOT NULL, "
                 "outcome TEXT NOT NULL CHECK(outcome IN ('pending','effect_confirmed',"
-                "'no_effect_confirmed'))) STRICT",
+                "'no_effect_confirmed')), provider_key TEXT) STRICT",
                 "CREATE TABLE IF NOT EXISTS dedup (account TEXT NOT NULL, "
                 "provider_key TEXT NOT NULL, "
                 "request_digest TEXT NOT NULL, effect_id INTEGER NOT NULL REFERENCES effects(id), "
                 "expires_at INTEGER, PRIMARY KEY(account,provider_key)) STRICT",
+                "CREATE TABLE IF NOT EXISTS provider_identity (id INTEGER PRIMARY KEY CHECK(id=1), "
+                "provider_id TEXT NOT NULL) STRICT",
             ):
                 db.execute(sql)
+            if "provider_key" not in {
+                row["name"] for row in db.execute("PRAGMA table_info(effects)")
+            }:
+                db.execute("ALTER TABLE effects ADD COLUMN provider_key TEXT")
+            db.execute(
+                "INSERT INTO provider_identity VALUES (1,?) ON CONFLICT(id) DO NOTHING",
+                (uuid4().hex,),
+            )
+            self.provider_id = db.execute(
+                "SELECT provider_id FROM provider_identity WHERE id=1"
+            ).fetchone()[0]
             config = db.execute("SELECT * FROM config WHERE id=1").fetchone()
             if config is None:
                 db.execute(
@@ -134,6 +148,7 @@ class ProviderStore:
                     "resource_version",
                     "request_digest",
                     "outcome",
+                    "provider_key",
                 )
             },
         }
@@ -193,7 +208,7 @@ class ProviderStore:
                 outcome = self._apply(db, body)
             cursor = db.execute(
                 "INSERT INTO effects(operation_id,attempt_id,account,resource,quantity,"
-                "resource_version,request_digest,outcome) VALUES (?,?,?,?,?,?,?,?)",
+                "resource_version,request_digest,outcome,provider_key) VALUES (?,?,?,?,?,?,?,?,?)",
                 (
                     body["operation_id"],
                     attempt_id,
@@ -203,6 +218,7 @@ class ProviderStore:
                     body["resource_version"],
                     body_digest,
                     outcome,
+                    provider_key,
                 ),
             )
             effect_id = cursor.lastrowid
@@ -259,6 +275,36 @@ class ProviderStore:
                     raise
                 records.pop()
                 result["truncated"] = True
+
+    def profile(self) -> dict:
+        return {
+            "protocol": "work-steward-synthetic/2",
+            "provider_id": self.provider_id,
+            "idempotency": self.idempotency.value,
+            "key_scope": "account",
+            "parameter_match": "canonical-body",
+            "atomic_resource_version": True,
+            "identity_condition": True,
+            "lookup_final_absence": False,
+            "retention_ticks": self.retention_ticks
+            if self.idempotency is Idempotency.FINITE
+            else None,
+        }
+
+    def snapshot(self, *, account: str, resource: str) -> dict:
+        text(account, "account")
+        text(resource, "resource")
+        with self.connection() as db:
+            row = db.execute(
+                "SELECT quantity,version FROM resources WHERE account=? AND resource=?",
+                (account, resource),
+            ).fetchone()
+        return {
+            "account": account,
+            "resource": resource,
+            "quantity": row[0] if row else 0,
+            "version": row[1] if row else 0,
+        }
 
     def advance_clock(self, ticks: int) -> None:
         """Test harness control. Deliberately not exposed by the HTTP protocol."""
