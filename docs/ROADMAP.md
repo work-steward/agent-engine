@@ -2,17 +2,13 @@
 
 The [synthetic inventory MVP](../examples/inventory/README.md) implements durable approvals, bound dispatch, verified reconciliation, proof-gated repetition, and recovery against an independent provider. Integrated crash and stale-sender tests complete the three durable-kernel implementation stories. The [code map](architecture.md) and [conformance evidence](conformance.md) bound these claims.
 
-## Before public release
+## Public synthetic milestone
 
-The synthetic MVP release review is complete. Repeat the [release controls](REPOSITORY_SECURITY.md) when publishing subsequent revisions.
-
-| Pending story | Done when |
-| --- | --- |
-| Publication and enforced protections | The project lead approves visibility/release; administrators verify protections, required checks, access, and contributor workflow settings. Private GitHub Free remains the current choice. |
+The synthetic MVP is public following release review, with protected `main` and security checks. Repeat the [release controls](REPOSITORY_SECURITY.md) when publishing subsequent revisions.
 
 ## Later
 
-These stories follow the synthetic MVP; they do not block its release.
+These stories extend the synthetic MVP.
 
 | Pending story | Done when |
 | --- | --- |

@@ -21,6 +21,6 @@ make check
 
 ## Review and licensing
 
-A maintainer reviews external contributions. Security and execution-control changes require owner review, with independent review before any release that performs consequential actions. On private repositories under GitHub Free, these merge rules are procedural until enforced branch rules become available.
+A maintainer reviews external contributions. Security and execution-control changes require owner review, with independent review before any release that performs consequential actions. `main` requires pull requests, passing checks, and resolved conversations, including for administrators. While there is one maintainer, mandatory second-person approvals and enforced CODEOWNERS review are disabled.
 
 Prefer squash merges. A sole maintainer may merge their own work after recording self-review and validation. Submit only work you have the right to contribute under [Apache-2.0](LICENSE), retain third-party notices, and identify dependency licenses. No separate CLA is required.

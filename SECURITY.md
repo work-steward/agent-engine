@@ -4,7 +4,7 @@ The project is an experimental execution engine with a synthetic inventory workf
 
 ## Reporting vulnerabilities
 
-Email [1.bhattacharjee.soham@gmail.com](mailto:1.bhattacharjee.soham@gmail.com) for private security reports. GitHub's Security → Report a vulnerability is another option when enabled. Do not publish credentials, private data, or vulnerability details in public issues.
+Use [GitHub's private vulnerability reporting](https://github.com/work-steward/agent-engine/security/advisories/new) or email [1.bhattacharjee.soham@gmail.com](mailto:1.bhattacharjee.soham@gmail.com). Do not publish credentials, private data, or vulnerability details in public issues.
 
 Provide the affected revision, a minimal synthetic reproduction, impact, and relevant trust assumptions through the private channel. Coordinate disclosure with maintainers. Rotate exposed credentials; deleting a file does not remove it from history.
 
