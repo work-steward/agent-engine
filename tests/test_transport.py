@@ -1,11 +1,13 @@
 import threading
 from contextlib import contextmanager
+from email.message import Message
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import Mock
 
 import pytest
 
 from work_steward.canonical import MAX_INPUT_BYTES, ValidationError
-from work_steward.transport import Endpoint, exchange
+from work_steward.transport import Endpoint, Reply, exchange
 
 
 @contextmanager
@@ -47,8 +49,13 @@ HEADERS = (
     [
         (),
         (*HEADERS, ("Content-Length", "2")),
-        (("Content-Length", str(MAX_INPUT_BYTES + 1)),),
+        (HEADERS[0], ("Content-Length", str(MAX_INPUT_BYTES + 1)), HEADERS[2]),
         (*HEADERS, ("Transfer-Encoding", "chunked")),
+        (HEADERS[0], ("Content-Length", "9" * 5000), HEADERS[2]),
+        (HEADERS[0], ("Content-Length", "0" * 5000), HEADERS[2]),
+        (HEADERS[0], ("Content-Length", "-1"), HEADERS[2]),
+        (HEADERS[0], ("Content-Length", "nan"), HEADERS[2]),
+        (HEADERS[0], ("Content-Length", "\u00b2"), HEADERS[2]),
     ],
 )
 def test_response_framing_is_bounded_and_unambiguous(headers):
@@ -63,6 +70,34 @@ def test_truncated_response_is_not_a_receipt():
     with reply_server(headers=headers) as (endpoint, _):
         reply = exchange(endpoint, "POST", "/v1/effects", ())
         assert reply.error == "invalid_response_size" and reply.body == b"{}"
+        assert reply.provider_id == "a" * 32
+
+
+def test_response_at_the_size_limit_is_preserved():
+    body = b" " * (MAX_INPUT_BYTES - 2) + b"{}"
+    headers = (HEADERS[0], ("Content-Length", str(MAX_INPUT_BYTES)), HEADERS[2])
+    with reply_server(headers=headers, body=body) as (endpoint, calls):
+        reply = exchange(endpoint, "POST", "/v1/effects", ())
+        assert reply.error is None and reply.body == body
+        assert reply.provider_id == "a" * 32
+        assert calls == ["/v1/effects"]
+
+
+def test_body_read_failure_retains_received_status_and_identity(monkeypatch):
+    from work_steward import transport
+
+    headers = Message()
+    for name, value in HEADERS:
+        headers[name] = value
+    response = Mock(status=200, headers=headers)
+    response.read.side_effect = TimeoutError("body timed out")
+    connection = Mock()
+    connection.getresponse.return_value = response
+    monkeypatch.setattr(transport, "HTTPConnection", lambda *_, **__: connection)
+    assert exchange(Endpoint(12345), "POST", "/v1/effects", ()) == Reply(
+        200, b"", "a" * 32, "transport_unavailable"
+    )
+    connection.close.assert_called_once()
 
 
 def test_redirects_and_environment_proxies_do_not_change_the_destination(monkeypatch):

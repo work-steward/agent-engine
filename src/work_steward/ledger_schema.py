@@ -139,6 +139,7 @@ DISPATCH_SCHEMA = (
         response_id TEXT PRIMARY KEY,
         operation_id TEXT NOT NULL REFERENCES operations(operation_id),
         source TEXT NOT NULL, attempt_id TEXT, status INTEGER, body BLOB NOT NULL,
+        provider_id TEXT, transport_error TEXT,
         admitted INTEGER NOT NULL CHECK(admitted IN (0,1)), error TEXT, at INTEGER NOT NULL
     ) STRICT""",
     """CREATE TABLE read_grants (

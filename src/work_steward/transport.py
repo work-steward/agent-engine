@@ -33,17 +33,21 @@ def exchange(
     body: bytes = b"",
 ) -> Reply:
     connection = HTTPConnection(endpoint.host, endpoint.port, timeout=3)
+    status, identity = None, None
     try:
         connection.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
         for name, value in headers:
             connection.putheader(name, value)
         connection.endheaders(body)
         response = connection.getresponse()
+        status = response.status
         lengths = response.headers.get_all("Content-Length", [])
         types = response.headers.get_all("Content-Type", [])
         identities = response.headers.get_all("X-WS-Provider-ID", [])
+        identity = identities[0] if len(identities) == 1 else None
         if (
             len(lengths) != 1
+            or len(lengths[0]) > len(str(MAX_INPUT_BYTES))
             or not lengths[0].isascii()
             or not lengths[0].isdecimal()
             or int(lengths[0]) > MAX_INPUT_BYTES
@@ -52,13 +56,15 @@ def exchange(
             or len(identities[0]) != 32
             or response.headers.get("Transfer-Encoding") is not None
         ):
-            return Reply(response.status, b"", error="invalid_response_headers")
+            return Reply(response.status, b"", identity, error="invalid_response_headers")
         payload = response.read(MAX_INPUT_BYTES + 1)
         if len(payload) != int(lengths[0]):
-            return Reply(response.status, payload[:MAX_INPUT_BYTES], error="invalid_response_size")
-        return Reply(response.status, payload, identities[0])
+            return Reply(
+                response.status, payload[:MAX_INPUT_BYTES], identity, error="invalid_response_size"
+            )
+        return Reply(response.status, payload, identity)
     except (OSError, HTTPException):
-        return Reply(None, b"", error="transport_unavailable")
+        return Reply(status, b"", identity, error="transport_unavailable")
     finally:
         connection.close()
 

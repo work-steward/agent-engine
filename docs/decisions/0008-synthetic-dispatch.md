@@ -8,7 +8,7 @@ Use one built-in loopback adapter. Persist its provider instance, account, contr
 
 Recheck current policy and evidence at release. Generation, attempt identity, and phase fence stale senders; harmless old status polls need not consume another attempt. Provider identity and resource-version conditions are enforced at the destination.
 
-Admit receipts only after matching instance, operation, account, parameters, provider key, body digest, and known attempt. Reconciliation needs separate current read permission. Preserve raw responses and conflicting observations. Empty lookups prove nothing. Uncertain repetition requires the verified permanent-key contract and complete prior-request coverage; finite retention supplies no arrival bound.
+Admit receipts only after matching instance, operation, account, parameters, provider key, body digest, and known attempt. Reconciliation needs separate current read permission. Preserve raw response bodies, observed provider identity, transport errors, and conflicting observations. Empty lookups prove nothing. Uncertain repetition requires the verified permanent-key contract and complete prior-request coverage; finite retention supplies no arrival bound.
 
 ## Limits
 

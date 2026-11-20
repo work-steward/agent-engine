@@ -296,7 +296,9 @@ class Engine:
                 )
             response_id = uuid4().hex
             db.execute(
-                "INSERT INTO provider_responses VALUES (?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO provider_responses(response_id,operation_id,source,attempt_id,"
+                "status,body,provider_id,transport_error,admitted,error,at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     response_id,
                     operation_id,
@@ -304,6 +306,8 @@ class Engine:
                     attempt_id,
                     reply.status,
                     reply.body,
+                    reply.provider_id,
+                    reply.error,
                     int(error is None),
                     error,
                     now,

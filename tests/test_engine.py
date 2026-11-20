@@ -207,6 +207,31 @@ def test_unverified_response_never_establishes_no_effect(engine_provider, monkey
         assert engine.inspect("op-1")["responses"][0]["admitted"] == 0
 
 
+@pytest.mark.parametrize(
+    "reply",
+    [
+        Reply(200, b"{}", "b" * 32),
+        Reply(None, b"", error="transport_unavailable"),
+        Reply(200, b"partial", error="invalid_response_size"),
+    ],
+)
+def test_rejected_response_retains_identity_and_transport_error(
+    engine_provider, monkeypatch, reply
+):
+    with engine_provider() as (engine, destination, _):
+        monkeypatch.setattr(engine, "_transmit", lambda _: reply)
+        result = engine.dispatch("op-1", actor="owner")
+        assert result.effect is Effect.UNKNOWN
+        response = Engine(engine.authority).inspect("op-1")["responses"][0]
+        assert response["provider_id"] == reply.provider_id
+        assert response["transport_error"] == reply.error
+        assert response["status"] == reply.status
+        assert response["body"] == reply.body.decode()
+        assert response["error"] == "unverified_response"
+        assert response["admitted"] == 0
+        assert destination.oracle() == (0, 0)
+
+
 def test_admission_sql_failure_cannot_transmit_or_leave_half_an_attempt(engine_provider):
     with engine_provider() as (engine, destination, _):
         before = engine.ledger.get("op-1")
@@ -438,6 +463,46 @@ def _released_sender(path, pipe):
     engine._transmit = paused
     engine.dispatch("op-1", actor="owner")
     pipe.send("observed")
+
+
+def test_permanent_retry_and_resumed_sender_deduplicate_without_a_version_condition(
+    engine_provider,
+):
+    with (
+        engine_provider() as (engine, destination, intent),
+        process(_released_sender, engine.ledger.path) as (worker, pipe),
+    ):
+        assert intent.consistency is Consistency.C0 and intent.resource_version is None
+        assert receive(pipe) == "released"
+        engine.recover("op-1", actor="owner")
+        assert engine.reconcile("op-1", actor="owner").effect is Effect.UNKNOWN
+        assert destination.oracle() == (0, 0)
+        repeated = engine.dispatch("op-1", actor="owner", repeat=True)
+        assert repeated.effect is Effect.CONFIRMED
+        assert repeated.attempts[-1].repetition_covered == frozenset(
+            {repeated.attempts[0].attempt_id}
+        )
+        pipe.send("resume")
+        assert receive(pipe) == "observed"
+        worker.join(timeout=5)
+        assert worker.exitcode == 0
+        after = engine.ledger.get("op-1")
+        assert after.effect is Effect.CONFIRMED and len(after.attempts) == 2
+        assert all(a.assessment is Effect.CONFIRMED for a in after.attempts)
+        assert destination.oracle() == (1, 1)
+
+
+def test_permanent_retry_after_an_applied_lost_response_has_one_unconditional_effect(
+    engine_provider,
+):
+    with engine_provider(behavior="drop_after_apply") as (engine, destination, intent):
+        assert intent.resource_version is None
+        assert engine.dispatch("op-1", actor="owner").effect is Effect.UNKNOWN
+        assert engine.dispatch("op-1", actor="owner", repeat=True).effect is Effect.UNKNOWN
+        after = engine.reconcile("op-1", actor="owner")
+        assert after.effect is Effect.CONFIRMED and len(after.attempts) == 2
+        assert all(a.assessment is Effect.CONFIRMED for a in after.attempts)
+        assert destination.oracle() == (1, 1)
 
 
 def test_released_old_sender_can_finish_after_revocation_without_reopening_authority(
