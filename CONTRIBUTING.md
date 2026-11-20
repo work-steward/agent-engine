@@ -2,6 +2,21 @@
 
 Read the [code map](docs/architecture.md) and [roadmap](docs/ROADMAP.md) before choosing work. Discuss substantial API or architecture changes in an issue, then submit a focused pull request against `main`.
 
+## Starting points
+
+Choose an unassigned issue, describe your approach there, and keep the change within its acceptance criteria. The two issues labeled `good first issue` are intended as entry points; the process and property tests need more familiarity with the engine.
+
+| Area | Scoped issue |
+| --- | --- |
+| Documentation | [Approval expiry versus reconciliation permission #15](https://github.com/work-steward/agent-engine/issues/15) |
+| Fault scenario | [Read revocation after a send #16](https://github.com/work-steward/agent-engine/issues/16) |
+| Process testing | [Provider restart with a paused sender #17](https://github.com/work-steward/agent-engine/issues/17) |
+| Protocol analysis | [Finite retention and delayed senders #18](https://github.com/work-steward/agent-engine/issues/18) |
+| Platform testing | [macOS walkthrough smoke check #19](https://github.com/work-steward/agent-engine/issues/19) |
+| Property testing | [Bounded recovery schedules #20](https://github.com/work-steward/agent-engine/issues/20) |
+
+Use the [evaluation guide](docs/evaluation.md) to find falsifiable claims and existing test entry points. Discuss changes to supported guarantees before expanding a contributor task into a new design.
+
 ## Checks
 
 ```sh

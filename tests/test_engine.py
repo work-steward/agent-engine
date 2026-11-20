@@ -4,6 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import replace
+from http.client import RemoteDisconnected
 from uuid import uuid4
 
 import pytest
@@ -503,6 +504,24 @@ def test_permanent_retry_after_an_applied_lost_response_has_one_unconditional_ef
         assert after.effect is Effect.CONFIRMED and len(after.attempts) == 2
         assert all(a.assessment is Effect.CONFIRMED for a in after.attempts)
         assert destination.oracle() == (1, 1)
+
+
+def test_unkeyed_retry_guard_prevents_a_real_unconditional_duplicate(engine_provider):
+    with engine_provider(profile="none", behavior="drop_after_apply") as (
+        engine,
+        destination,
+        intent,
+    ):
+        assert intent.consistency is Consistency.C0 and intent.resource_version is None
+        assert engine.dispatch("op-1", actor="owner").effect is Effect.UNKNOWN
+        with pytest.raises(TransitionError, match="permanent-key"):
+            engine.dispatch("op-1", actor="owner", repeat=True)
+        assert destination.oracle() == (1, 1)
+        assert len(engine.ledger.get("op-1").attempts) == 1
+        # Harness-only counterexample: bypassing the engine really duplicates this write.
+        with pytest.raises(RemoteDisconnected):
+            destination.submit(key=None, attempt="blind-retry")
+        assert destination.oracle() == (2, 2)
 
 
 def test_released_old_sender_can_finish_after_revocation_without_reopening_authority(

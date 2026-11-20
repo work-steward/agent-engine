@@ -1,70 +1,89 @@
 # Work Steward — Agent Engine
 
-Work Steward is building a self-hostable execution engine for AI-assisted business workflows. Its goal is to keep business actions within approved limits, preserve their history across restarts, and make uncertain outcomes visible.
+An inventory update can succeed even when your app sees a timeout. Retrying may update stock twice.
 
-**Status: experimental.** Run the synthetic inventory workflow locally without credentials or a model API key. It uses CLI proposals and a separate warehouse simulator. Use synthetic data only; real integrations remain unsupported.
+Agent Engine keeps the approved request, each attempt, and evidence of the result in a durable history. When a result is uncertain, it can block another send until repetition is justified. We are building this execution layer for AI-assisted business workflows.
 
-## Why this exists
+**Experimental; synthetic data only.** The reference application uses CLI proposals and a separate warehouse process. No credentials or model API key are needed. Real connectors and model integration remain future work.
 
-An AI assistant can propose a sensible action and still execute it badly: use stale permission, submit the same change twice, or retry after a timeout even though the first request succeeded.
+## Try it
 
-For example, an inventory system might apply a stock adjustment and lose the response. Retrying could adjust stock twice. Calling the first attempt “failed” would hide what actually matters: whether the stock changed.
-
-Work Steward separates what was requested, what was allowed, what was attempted, and what is known about the result.
-
-## How it works
-
-The engine prepares an exact request for approval, checks current permission, and records each attempt before a single HTTP send:
-
-```mermaid
-flowchart LR
-    P["Stock receipt proposal"] --> I["Prepare exact request"]
-    I --> A["Approve and record attempt"]
-    A --> S["Synthetic warehouse"]
-```
-
-- **Permissions:** approvals bind exact intent, request, and policy revision. Admission and release check current scope, evidence, expiry, and revocation.
-- **Durable records:** SQLite commits state and journal changes together, rejects stale updates, and retains business-key reservations to detect repeated submissions.
-- **Explicit uncertainty:** timeouts do not prove failure, and cancellation cannot undo an action that may already have reached another system.
-
-After a lost response, the engine admits only evidence tied to the recorded request. Missing status leaves the outcome unknown:
-
-```mermaid
-flowchart LR
-    L["Response lost"] --> U["Outcome unknown"]
-    U --> E{"Evidence"}
-    E -->|Change confirmed| C["Record confirmed change"]
-    E -->|Retry proven safe| R["Recheck permission before retry"]
-    E -->|Inconclusive| H["Wait or human review"]
-```
-
-## Current scope
-
-| Area | Today |
-| --- | --- |
-| Engine | Durable state, exact request/approval bindings, fenced dispatch, and verified synthetic outcomes |
-| Reference workflow | Inventory adjustments with an operator CLI and repeatable failure scenarios |
-| Supported setup | Trusted macOS/Linux host, local SQLite, one organization and bound provider account per database |
-| Later work | Real connectors, external caller authentication, model integration, and a nontechnical workbench |
-
-The [architecture](docs/architecture.md) maps components to code and tests. The [roadmap](docs/ROADMAP.md) and [conformance gates](docs/conformance.md) describe the remaining work and required evidence.
-
-## Get started
-
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run:
+On macOS or Linux, install [uv](https://docs.astral.sh/uv/getting-started/installation/), Git, and Make:
 
 ```sh
+git clone https://github.com/work-steward/agent-engine.git
+cd agent-engine
 uv sync --frozen
 make demo
 ```
 
-See the [inventory guide](examples/inventory/README.md) for scenarios and manual approvals. Run `make check` for lint, fault tests, and the coverage gate. Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock).
+The warehouse receives 10 `DEMO-WIDGET` units. Look for these fields in the JSON output; excerpts here omit IDs and other details:
 
-## Project guides
+```json
+{
+  "effect": "effect_confirmed",
+  "attempts": 1,
+  "stock": {"quantity": 10, "version": 1}
+}
+```
 
-- [Design decisions](docs/decisions/README.md)
-- [Threat model](docs/threat-model.md)
-- [Third-party licenses](THIRD_PARTY_NOTICES.md)
-- [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md), and [security reporting](SECURITY.md)
+Python is pinned in [.python-version](.python-version); dependencies are locked in [uv.lock](uv.lock).
+
+## A 60–90-second failure walkthrough
+
+After installation, run a fresh case where the warehouse applies the receipt and drops its response. This case deliberately uses an unconditional adjustment and a provider with no idempotency key:
+
+```sh
+inventory_demo_dir=$(mktemp -d)
+uv run --frozen python -m examples.inventory --directory "$inventory_demo_dir" run --scenario unsafe-retry
+```
+
+Relevant output:
+
+```json
+{
+  "effect": "unknown",
+  "attempts": 1,
+  "checkpoints": ["unknown", "unsafe_retry_blocked"],
+  "stock": {"quantity": 10, "version": 1}
+}
+```
+
+The stock changed, but the engine did not receive a usable receipt. It refuses the requested retry and retains one attempt. A stock snapshot cannot identify which request changed it, so the operation stays `unknown` until matching evidence is admitted.
+
+```mermaid
+flowchart LR
+    A["Approve +10 units"] --> W["Warehouse applies"]
+    W --> L["Response lost"]
+    L --> U["Outcome unknown"]
+    U --> B["Unkeyed retry blocked"]
+    U --> R["Matching receipt resolves outcome"]
+```
+
+[Reconcile and inspect this case](examples/inventory/README.md#resolve-the-lost-response) without another adjustment. The [scenario guide](examples/inventory/README.md) also covers crashes, revoked approval, stale evidence, and a resumed old sender with permanent-key deduplication. Runs retain their databases; a fresh directory starts a fresh case.
+
+## How it works
+
+```mermaid
+flowchart LR
+    P["Proposal"] --> I["Prepare exact request"]
+    I --> A["Approve"]
+    A --> D["Record attempt and send boundary"]
+    D --> S["Synthetic warehouse"]
+```
+
+- **Current permission:** admission and release check scope, evidence, expiry, revocation, and approval of the exact request.
+- **Durable state:** SQLite commits state and journal changes together. Restart cannot replay an old send boundary.
+- **Evidence and recovery:** verified receipts resolve outcomes under separate read permission. Cancellation preserves effects that may already have happened. Uncertain repetition currently requires the declared permanent-key contract.
+
+These guarantees assume a trusted host, surviving authoritative databases, and an honest synthetic provider. The [comparison and limitations](docs/comparison.md) explain the relationship to Temporal, Inngest, and application-side retries. No performance or safety superiority is claimed.
+
+## Evaluate or contribute
+
+Use the [external evaluation guide](docs/evaluation.md) to challenge specific claims, including schedules that would falsify them. Run `make check` for lint, fault tests, and the coverage gate; `make audit` checks current dependency advisories.
+
+Start with the [scoped contributor issues](CONTRIBUTING.md#starting-points) for documentation, fault scenarios, protocol analysis, and tests. Each has a starting point and acceptance criteria.
+
+The [architecture](docs/architecture.md), [conformance evidence](docs/conformance.md), and [roadmap](docs/ROADMAP.md) map implemented behavior and remaining work. See [design decisions](docs/decisions/README.md), [governance](GOVERNANCE.md), [security reporting](SECURITY.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Licensed under [Apache-2.0](LICENSE).
