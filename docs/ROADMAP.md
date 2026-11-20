@@ -4,9 +4,10 @@ The [synthetic inventory MVP](../examples/inventory/README.md) implements durabl
 
 ## Before public release
 
+The synthetic MVP release review is complete. Repeat the [release controls](REPOSITORY_SECURITY.md) when publishing subsequent revisions.
+
 | Pending story | Done when |
 | --- | --- |
-| Public release review | History, secrets, licenses, artifacts, tested claims, and reporting channels pass the [release controls](REPOSITORY_SECURITY.md). |
 | Publication and enforced protections | The project lead approves visibility/release; administrators verify protections, required checks, access, and contributor workflow settings. Private GitHub Free remains the current choice. |
 
 ## Later

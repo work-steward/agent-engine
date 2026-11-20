@@ -24,9 +24,10 @@ def repository(tmp_path):
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("")
-    (tmp_path / ".github/workflows/repository-checks.yml").write_text(
-        "contents: read\npersist-credentials: false\nuses: actions/checkout@" + "a" * 40 + "\n"
-    )
+    for workflow in (tmp_path / ".github/workflows").glob("*.yml"):
+        workflow.write_text(
+            "contents: read\npersist-credentials: false\nuses: actions/checkout@" + "a" * 40 + "\n"
+        )
     shutil.copyfile(
         Path(__file__).resolve().parents[1] / ".pymarkdown.json", tmp_path / ".pymarkdown.json"
     )

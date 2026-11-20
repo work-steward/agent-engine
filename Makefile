@@ -1,4 +1,4 @@
-.PHONY: lint format test check demo
+.PHONY: lint format test check demo audit
 
 lint:
 	uv run --frozen ruff check .
@@ -22,3 +22,8 @@ check: lint test
 
 demo:
 	uv run --frozen python -m examples.inventory run
+
+audit:
+	mkdir -p .scratch
+	uv export --frozen --all-groups --no-emit-project --output-file .scratch/audit-requirements.txt > /dev/null
+	uv run --frozen pip-audit --strict --require-hashes --disable-pip --cache-dir .scratch/pip-audit-cache -r .scratch/audit-requirements.txt

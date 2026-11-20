@@ -8,8 +8,14 @@ version = "0.1.0.dev0"
 description = "Experimental execution engine with a synthetic inventory reference workflow"
 requires-python = ">=3.13,<3.14"
 license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 readme = "README.md"
 dependencies = ["rfc8785>=0.1.4,<0.2"]
+
+[project.urls]
+Repository = "https://github.com/work-steward/agent-engine"
+Issues = "https://github.com/work-steward/agent-engine/issues"
+Security = "https://github.com/work-steward/agent-engine/blob/main/SECURITY.md"
 
 [dependency-groups]
 dev = [
@@ -20,6 +26,7 @@ dev = [
     "yamllint>=1.37,<2",
     "markdown-it-py>=3,<5",
     "coverage>=7.10,<8",
+    "pip-audit>=2.9,<3",
 ]
 
 [project.scripts]

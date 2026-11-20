@@ -1,0 +1,9 @@
+title = "Work Steward secret scan"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exact synthetic provider enum; not a credential."
+regexTarget = "secret"
+regexes = ['''^idempotency=Idempotency\.PERMANENT$''']

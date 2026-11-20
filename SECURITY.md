@@ -1,10 +1,10 @@
 # Security policy
 
-The package is an experimental reference model and synthetic provider. There is no production release or supported production execution environment. Fixes target `main`.
+The project is an experimental execution engine with a synthetic inventory workflow. There is no production release or supported production execution environment. Only `main` receives fixes; no released-version support or response-time SLA is promised.
 
 ## Reporting vulnerabilities
 
-Use Security → Report a vulnerability when private reporting is available. Otherwise request a private security contact from [@sohambhattacharjee](https://github.com/sohambhattacharjee), without including exploit details. Do not publish credentials, private data, or vulnerability details in public issues. No response-time SLA is promised.
+Email [1.bhattacharjee.soham@gmail.com](mailto:1.bhattacharjee.soham@gmail.com) for private security reports. GitHub's Security → Report a vulnerability is another option when enabled. Do not publish credentials, private data, or vulnerability details in public issues.
 
 Provide the affected revision, a minimal synthetic reproduction, impact, and relevant trust assumptions through the private channel. Coordinate disclosure with maintainers. Rotate exposed credentials; deleting a file does not remove it from history.
 
