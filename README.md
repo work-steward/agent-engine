@@ -77,7 +77,7 @@ flowchart LR
 - **Durable state:** SQLite commits state and journal changes together. Restart cannot replay an old send boundary.
 - **Evidence and recovery:** verified receipts resolve outcomes under separate read permission. Cancellation preserves effects that may already have happened. Uncertain repetition currently requires the declared permanent-key contract.
 
-These guarantees assume a trusted host, surviving authoritative databases, and an honest synthetic provider. The [comparison and limitations](docs/comparison.md) explain the relationship to Temporal, Inngest, and application-side retries. No performance or safety superiority is claimed.
+These guarantees assume a trusted host, surviving authoritative databases, and an honest synthetic provider. The [comparison and limitations](docs/comparison.md) explain the relationship to Temporal, Inngest, and application-side retries.
 
 ## Evaluate or contribute
 

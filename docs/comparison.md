@@ -2,6 +2,8 @@
 
 Agent Engine is an experimental controller for approved external actions. Its current reference profile binds an intent, exact request, approval, attempts, and verified outcomes in one local SQLite ledger. It has one synthetic connector and a small inventory application.
 
+Try it to inspect or challenge an approval-and-evidence controller locally. For a production workflow, evaluate an orchestration platform's documented features and the external service's effect contract; this repository has no supported production deployment or real connector.
+
 ## Different recovery boundaries
 
 | Approach | Recovery unit | Work at the external-effect boundary |
