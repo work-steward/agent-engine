@@ -1,10 +1,8 @@
 # Work Steward — Agent Engine
 
-An inventory update can succeed even when your app sees a timeout. Retrying may update stock twice.
+Work Steward is building a self-hostable execution engine for AI-assisted business workflows. Its goal is to keep business actions within approved limits, preserve their history across restarts, and make uncertain outcomes visible.
 
-Agent Engine keeps the approved request, each attempt, and evidence of the result in a durable history. When a result is uncertain, it can block another send until repetition is justified. We are building this execution layer for AI-assisted business workflows.
-
-**Experimental; synthetic data only.** The reference application uses CLI proposals and a separate warehouse process. No credentials or model API key are needed. Real connectors and model integration remain future work.
+**Status: experimental.** Run the synthetic inventory workflow locally without credentials or a model API key. It uses CLI proposals and a separate warehouse simulator. Use synthetic data only; real integrations remain unsupported.
 
 ## Try it
 
