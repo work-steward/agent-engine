@@ -36,7 +36,7 @@ After installation, run a fresh case where the warehouse applies the receipt and
 ```sh
 inventory_demo_dir=$(mktemp -d)
 uv run --frozen python -m examples.inventory \
-  --directory "$inventory_demo_dir" run --scenario unsafe-retry
+  --directory "${inventory_demo_dir:?}" run --scenario unsafe-retry
 ```
 
 Relevant output:

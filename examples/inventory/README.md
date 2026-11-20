@@ -38,7 +38,8 @@ For the README's `unsafe-retry` case, keep the same terminal variable and reconc
 
 ```sh
 uv run --frozen python -m examples.inventory \
-  --directory "$inventory_demo_dir/unsafe-retry" reconcile receipt-001
+  --directory "${inventory_demo_dir:?Run the README walkthrough first}/unsafe-retry" \
+  reconcile receipt-001
 ```
 
 The output is the full operation history. Expect `effect` to become `effect_confirmed`, one entry in `attempts`, and a lookup response admitting a matching observation. No second adjustment is sent. `inspect receipt-001` in that same directory reads the history offline.
