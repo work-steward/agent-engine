@@ -1,0 +1,88 @@
+name: Security checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: security-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify pinned scanner and scan history
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' \
+            "$RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git . --log-opts='--all --full-history' \
+            --redact=100 --ignore-gitleaks-allow --no-banner
+      - name: Verify exceptions cannot hide credentials
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import random
+          import string
+          import subprocess
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          fixture = root / "scanner-challenge" / "tests" / "test_authority.py"
+          fixture.parent.mkdir(parents=True)
+          randomizer = random.Random("work-steward-synthetic-scanner-fixture")
+          alphabet = string.ascii_letters + string.digits
+          token = "ghp_" + "".join(randomizer.choices(alphabet, k=36))
+          key = "".join(randomizer.choices(alphabet, k=40))
+          fixture.write_text(
+              'intent, provider_key="key-1", idempotency=Idempotency.PERMANENT\n'
+              + f'api_token="{token}"\nservice_api_key="{key}"\n'
+          )
+          report = root / "scanner-challenge.json"
+          result = subprocess.run([
+              str(root / "gitleaks"), "dir", str(fixture.parents[1]),
+              "--config", ".gitleaks.toml", "--redact=100", "--no-banner",
+              "--report-format=json", "--report-path=" + str(report),
+          ], capture_output=True, text=True)
+          findings = json.loads(report.read_text())
+          if result.returncode != 1 or len(findings) != 2 or {
+              item["RuleID"] for item in findings
+          } != {"github-pat", "generic-api-key"}:
+              raise SystemExit("Scanner exceptions hid an unissued test credential")
+          print("Exact enum allowed; both unissued test credentials blocked")
+          PY
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version-file: .python-version
+      - name: Install pinned dependency tool
+        run: python -m pip install uv==0.13.9
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Audit locked dependencies
+        run: make audit

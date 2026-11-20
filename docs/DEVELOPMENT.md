@@ -11,6 +11,8 @@ make check
 
 Rules live in [pyproject.toml](../pyproject.toml), [.pymarkdown.json](../.pymarkdown.json), and [.yamllint.yml](../.yamllint.yml). Python security exceptions are limited to test assertions and explicit synthetic subprocess launches. Markdown paragraph wrapping and a first-line H1 are optional so tables and GitHub template fragments remain practical. Local links are parsed as Markdown, must resolve to repository content with exact path casing, and cannot escape to private filesystem paths. External URLs are not fetched.
 
+`make audit` queries current advisories for the locked dependencies. CI also runs a full-history secret scan with checksum-pinned Gitleaks; see [release controls](REPOSITORY_SECURITY.md). Neither scan proves the absence of vulnerabilities or secrets.
+
 ## Synthetic provider
 
 ```sh

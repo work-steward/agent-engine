@@ -10,10 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = (
     "README.md",
     "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
     ".github/CODEOWNERS",
     ".github/workflows/repository-checks.yml",
+    ".github/workflows/security.yml",
+    ".gitleaks.toml",
     "pyproject.toml",
     "uv.lock",
 )

@@ -64,6 +64,7 @@ See the [inventory guide](examples/inventory/README.md) for scenarios and manual
 
 - [Design decisions](docs/decisions/README.md)
 - [Threat model](docs/threat-model.md)
+- [Third-party licenses](THIRD_PARTY_NOTICES.md)
 - [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md), and [security reporting](SECURITY.md)
 
 Licensed under [Apache-2.0](LICENSE).
