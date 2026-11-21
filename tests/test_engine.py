@@ -474,6 +474,18 @@ def _paused_sender(path, transmit_before_pause, pipe):
     pipe.send("observed")
 
 
+def _assert_response_history(detail):
+    responses = {response["response_id"]: response for response in detail["responses"]}
+    entries = [entry for entry in detail["history"] if entry["command"] == "provider_response"]
+    assert len(entries) == len(responses) == len(detail["responses"])
+    assert {entry["data"]["response_id"] for entry in entries} == responses.keys()
+    for entry in entries:
+        response = responses[entry["data"]["response_id"]]
+        assert entry["data"]["admitted"] == bool(response["admitted"])
+        assert entry["data"]["error"] == (response["error"] or response["transport_error"])
+        assert entry["data"]["at"] == response["at"]
+
+
 def test_permanent_retry_and_resumed_sender_deduplicate_without_a_version_condition(
     engine_provider,
 ):
@@ -523,7 +535,9 @@ def test_provider_restart_and_resumed_sender_preserve_permanent_key(
             engine = Engine(engine.authority)
             assert engine.endpoint == Endpoint(restarted.port)
             assert Engine.configuration(engine.authority) == binding
-            engine.recover("op-1", actor="owner")
+            recovered = engine.recover("op-1", actor="owner")
+            assert recovered.generation == before.generation + 1
+            assert engine.ledger.history("op-1")[-1].command == "recover"
             if not transmit_before_pause:
                 assert engine.reconcile("op-1", actor="owner").effect is Effect.UNKNOWN
             repeated = engine.dispatch("op-1", actor="owner", repeat=True)
@@ -538,6 +552,7 @@ def test_provider_restart_and_resumed_sender_preserve_permanent_key(
             after = Engine(engine.authority).inspect("op-1")
             attempts = {attempt["attempt_id"] for attempt in after["attempts"]}
             assert after["effect"] == "effect_confirmed" and len(attempts) == 2
+            assert all(attempt["assessment"] == "effect_confirmed" for attempt in after["attempts"])
             assert {fact["attempt_id"] for fact in after["observations"]} == attempts
             record = restarted.lookup()[1]["records"][0]
             assert (
@@ -547,7 +562,20 @@ def test_provider_restart_and_resumed_sender_preserve_permanent_key(
             assert {fact["provider_effect_id"] for fact in after["observations"]} == {
                 record["provider_effect_id"]
             }
-            assert all(response["admitted"] for response in after["responses"])
+            posts = [response for response in after["responses"] if response["source"] == "post"]
+            lookups = [
+                response for response in after["responses"] if response["source"] == "lookup"
+            ]
+            assert len(posts) == 2 and {response["attempt_id"] for response in posts} == attempts
+            assert len(lookups) == int(not transmit_before_pause)
+            assert all(response["attempt_id"] is None for response in lookups)
+            assert all(
+                response["admitted"] == 1
+                and response["error"] is None
+                and response["provider_id"] == engine.profile.provider_id
+                for response in after["responses"]
+            )
+            _assert_response_history(after)
             assert restarted.oracle() == (1, 1)
 
 
@@ -584,13 +612,14 @@ def test_generated_permanent_key_recovery_schedules(engine_provider, commands):
         intent,
     ):
         assert intent.consistency is Consistency.C0 and intent.resource_version is None
-        sent, confirmed = 0, False
+        sent, lookups, confirmed = 0, 0, False
         wire = []
         prepared = engine.inspect("op-1")["prepared_request"]
         history = engine.ledger.history("op-1")
         for index, (command, advance) in enumerate(commands):
             now += advance
             note(f"Executed prefix: {commands[: index + 1]!r}; clock={now}")
+            expect_recovery = command == "recover" or (command == "retry" and not confirmed)
             authority = Authority(
                 engine.ledger.path,
                 organization_id="org-1",
@@ -630,6 +659,7 @@ def test_generated_permanent_key_recovery_schedules(engine_provider, commands):
                 if command in {"dispatch", "retry"} and not confirmed:
                     sent += 1
                 elif command == "reconcile":
+                    lookups += 1
                     confirmed = True
 
             assert len(wire) == sent
@@ -641,14 +671,43 @@ def test_generated_permanent_key_recovery_schedules(engine_provider, commands):
                 Effect.CONFIRMED if confirmed else Effect.UNKNOWN if sent else Effect.NOT_ATTEMPTED
             )
             assert all(attempt.phase is Phase.POSSIBLY_SENT for attempt in action.attempts)
+            assert all(
+                attempt.assessment is (Effect.CONFIRMED if confirmed else Effect.UNKNOWN)
+                for attempt in action.attempts
+            )
             for ordinal, attempt in enumerate(action.attempts):
                 assert attempt.repetition_covered == frozenset(
                     previous.attempt_id for previous in action.attempts[:ordinal]
                 )
             detail = reopened.inspect("op-1")
             assert detail["prepared_request"] == prepared
+            posts = [response for response in detail["responses"] if response["source"] == "post"]
+            polls = [response for response in detail["responses"] if response["source"] == "lookup"]
+            assert len(posts) == sent and len(polls) == lookups
+            assert [response["attempt_id"] for response in posts] == [
+                dict(request.headers)["X-WS-Attempt-ID"] for request in wire
+            ]
+            assert all(
+                response["admitted"] == 0
+                and response["error"] == "unverified_response"
+                and response["transport_error"] == "transport_unavailable"
+                for response in posts
+            )
+            assert all(
+                response["admitted"] == 1 and response["attempt_id"] is None for response in polls
+            )
+            _assert_response_history(detail)
+            assert {fact["attempt_id"] for fact in detail["observations"]} == (
+                {attempt.attempt_id for attempt in action.attempts} if confirmed else set()
+            )
             persisted = reopened.ledger.history("op-1")
             assert persisted[: len(history)] == history
+            recoveries = [
+                entry for entry in persisted[len(history) :] if entry.command == "recover"
+            ]
+            assert len(recoveries) == int(expect_recovery)
+            if expect_recovery:
+                assert recoveries[0].generation == history[-1].generation + 1
             assert all(
                 current.previous_version == previous.version and current.version > previous.version
                 for previous, current in pairwise(persisted)
