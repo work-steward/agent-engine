@@ -5,10 +5,13 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import replace
 from http.client import RemoteDisconnected
+from itertools import pairwise
 from uuid import uuid4
 
 import pytest
 from conftest import process, receive
+from hypothesis import HealthCheck, example, given, note, settings
+from hypothesis import strategies as st
 
 from work_steward.authority import Authority, AuthorizationDenied, Policy
 from work_steward.canonical import ValidationError
@@ -24,7 +27,7 @@ from work_steward.transport import Endpoint, Reply
 @pytest.fixture
 def engine_provider(tmp_path, provider, intent):
     @contextmanager
-    def start(*, profile="permanent", behavior="apply", prepared=True, approved=True):
+    def start(*, profile="permanent", behavior="apply", prepared=True, approved=True, clock=None):
         with provider(
             database=tmp_path / (uuid4().hex + ".provider.sqlite"),
             profile=profile,
@@ -34,7 +37,7 @@ def engine_provider(tmp_path, provider, intent):
                 tmp_path / (uuid4().hex + ".sqlite"),
                 organization_id="org-1",
                 administrators=frozenset({"owner"}),
-                clock=lambda: 100,
+                clock=clock if clock is not None else lambda: 100,
             )
             engine = Engine(authority, endpoint=Endpoint(destination.port), account=intent.account)
             proposal = replace(intent, adapter_id=ADAPTER_ID, adapter_digest=ADAPTER_DIGEST)
@@ -450,6 +453,10 @@ def test_read_grants_are_scoped_bounded_immutable_and_revocable(engine_provider)
 
 
 def _released_sender(path, pipe):
+    _paused_sender(path, False, pipe)
+
+
+def _paused_sender(path, transmit_before_pause, pipe):
     authority = Authority(
         path, organization_id="org-1", administrators=frozenset({"owner"}), clock=lambda: 100
     )
@@ -457,9 +464,10 @@ def _released_sender(path, pipe):
     transmit = engine._transmit
 
     def paused(request):
+        reply = transmit(request) if transmit_before_pause else None
         pipe.send("released")
         pipe.recv()
-        return transmit(request)
+        return reply if transmit_before_pause else transmit(request)
 
     engine._transmit = paused
     engine.dispatch("op-1", actor="owner")
@@ -491,6 +499,172 @@ def test_permanent_retry_and_resumed_sender_deduplicate_without_a_version_condit
         assert after.effect is Effect.CONFIRMED and len(after.attempts) == 2
         assert all(a.assessment is Effect.CONFIRMED for a in after.attempts)
         assert destination.oracle() == (1, 1)
+
+
+@pytest.mark.parametrize("transmit_before_pause", [False, True])
+def test_provider_restart_and_resumed_sender_preserve_permanent_key(
+    engine_provider, provider, transmit_before_pause
+):
+    with (
+        engine_provider() as (engine, destination, intent),
+        process(_paused_sender, engine.ledger.path, transmit_before_pause) as (worker, pipe),
+    ):
+        assert intent.consistency is Consistency.C0 and intent.resource_version is None
+        assert receive(pipe) == "released"
+        before = engine.ledger.get("op-1")
+        assert before.effect is Effect.UNKNOWN
+        assert before.attempts[0].phase is Phase.POSSIBLY_SENT
+        assert destination.oracle() == (int(transmit_before_pause), int(transmit_before_pause))
+        binding = Engine.configuration(engine.authority)
+        destination.process.kill()
+        destination.process.wait(timeout=5)
+        with provider(database=destination.database, port=destination.port) as restarted:
+            assert restarted.request("GET", "/v1/profile") == (200, engine.profile.value)
+            engine = Engine(engine.authority)
+            assert engine.endpoint == Endpoint(restarted.port)
+            assert Engine.configuration(engine.authority) == binding
+            engine.recover("op-1", actor="owner")
+            if not transmit_before_pause:
+                assert engine.reconcile("op-1", actor="owner").effect is Effect.UNKNOWN
+            repeated = engine.dispatch("op-1", actor="owner", repeat=True)
+            assert repeated.effect is Effect.CONFIRMED
+            assert repeated.attempts[-1].repetition_covered == frozenset(
+                {before.attempts[0].attempt_id}
+            )
+            pipe.send("resume")
+            assert receive(pipe) == "observed"
+            worker.join(timeout=5)
+            assert worker.exitcode == 0
+            after = Engine(engine.authority).inspect("op-1")
+            attempts = {attempt["attempt_id"] for attempt in after["attempts"]}
+            assert after["effect"] == "effect_confirmed" and len(attempts) == 2
+            assert {fact["attempt_id"] for fact in after["observations"]} == attempts
+            record = restarted.lookup()[1]["records"][0]
+            assert (
+                record["attempt_id"]
+                == repeated.attempts[0 if transmit_before_pause else 1].attempt_id
+            )
+            assert {fact["provider_effect_id"] for fact in after["observations"]} == {
+                record["provider_effect_id"]
+            }
+            assert all(response["admitted"] for response in after["responses"])
+            assert restarted.oracle() == (1, 1)
+
+
+@settings(
+    max_examples=20,
+    deadline=None,
+    derandomize=True,
+    database=None,
+    print_blob=True,
+    # Each example opens a fresh provider process and UUID-named databases.
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
+@example(
+    commands=[("dispatch", 0), ("recover", 0), ("dispatch", 0), ("retry", 0), ("reconcile", 0)]
+)
+@example(commands=[("retry", 0)] * 4 + [("reconcile", 0), ("dispatch", 100)])
+@example(commands=[("reconcile", 0), ("dispatch", 0), ("retry", 50), ("reconcile", 0)])
+@example(commands=[("dispatch", 0), ("reconcile", 100), ("recover", 0), ("retry", 0)])
+@given(
+    commands=st.lists(
+        st.tuples(
+            st.sampled_from(["dispatch", "retry", "reconcile", "recover"]),
+            st.sampled_from([0, 1, 50, 100]),
+        ),
+        min_size=1,
+        max_size=10,
+    )
+)
+def test_generated_permanent_key_recovery_schedules(engine_provider, commands):
+    now = 100
+    with engine_provider(behavior="drop_after_apply", clock=lambda: now) as (
+        engine,
+        destination,
+        intent,
+    ):
+        assert intent.consistency is Consistency.C0 and intent.resource_version is None
+        sent, confirmed = 0, False
+        wire = []
+        prepared = engine.inspect("op-1")["prepared_request"]
+        history = engine.ledger.history("op-1")
+        for index, (command, advance) in enumerate(commands):
+            now += advance
+            note(f"Executed prefix: {commands[: index + 1]!r}; clock={now}")
+            authority = Authority(
+                engine.ledger.path,
+                organization_id="org-1",
+                administrators=frozenset({"owner"}),
+                clock=lambda tick=now: tick,
+            )
+            engine = Engine(authority)
+
+            def transmit(request):
+                wire.append(request)
+                return Engine._transmit(request)
+
+            engine._transmit = transmit
+            failure = None
+            if command in {"dispatch", "retry"} and not confirmed:
+                if now >= 150:
+                    failure = AuthorizationDenied
+                elif sent >= 3 or (sent and command == "dispatch"):
+                    failure = TransitionError
+            elif command == "reconcile":
+                failure = (
+                    AuthorizationDenied if now >= 200 else TransitionError if not sent else None
+                )
+
+            def execute(engine=engine, command=command):
+                if command in {"dispatch", "retry"}:
+                    return engine.dispatch("op-1", actor="owner", repeat=command == "retry")
+                if command == "reconcile":
+                    return engine.reconcile("op-1", actor="owner")
+                return engine.recover("op-1", actor="owner")
+
+            if failure is not None:
+                with pytest.raises(failure):
+                    execute()
+            else:
+                execute()
+                if command in {"dispatch", "retry"} and not confirmed:
+                    sent += 1
+                elif command == "reconcile":
+                    confirmed = True
+
+            assert len(wire) == sent
+            assert destination.oracle() == (int(sent > 0), int(sent > 0))
+            reopened = Engine(authority)
+            action = reopened.ledger.get("op-1")
+            assert len(action.attempts) == sent
+            assert action.effect is (
+                Effect.CONFIRMED if confirmed else Effect.UNKNOWN if sent else Effect.NOT_ATTEMPTED
+            )
+            assert all(attempt.phase is Phase.POSSIBLY_SENT for attempt in action.attempts)
+            for ordinal, attempt in enumerate(action.attempts):
+                assert attempt.repetition_covered == frozenset(
+                    previous.attempt_id for previous in action.attempts[:ordinal]
+                )
+            detail = reopened.inspect("op-1")
+            assert detail["prepared_request"] == prepared
+            persisted = reopened.ledger.history("op-1")
+            assert persisted[: len(history)] == history
+            assert all(
+                current.previous_version == previous.version and current.version > previous.version
+                for previous, current in pairwise(persisted)
+            )
+            last = persisted[-1]
+            assert (last.version, last.generation, last.effect, last.disposition) == (
+                action.version,
+                action.generation,
+                action.effect,
+                action.disposition,
+            )
+            assert sum(entry.command == "send_possible" for entry in persisted) == sent
+            assert {dict(request.headers)["X-WS-Attempt-ID"] for request in wire} == {
+                attempt.attempt_id for attempt in action.attempts
+            }
+            history = persisted
 
 
 def test_permanent_retry_after_an_applied_lost_response_has_one_unconditional_effect(

@@ -9,7 +9,7 @@ Code and tests define implemented behavior. These stable acceptance IDs cover th
 - [Ledger tests](../tests/test_ledger.py): immutable operation/profile bindings, retained business reservations, atomic state/attempt/evidence/journal commits, concurrent writers, and real process death before/after commits. Inputs remain trusted model facts.
 - [Authority tests](../tests/test_authority.py): exact approvals, scoped policy/evidence, expiry, clock rollback, revocation races, migration rollback, and approval process-crash boundaries. Control callers and evidence provenance remain trusted.
 - [Simulator tests](../tests/test_simulator.py): independent provider/client processes, response loss, delayed requests, concurrent deduplication, finite retention, atomic conditional effects, and bounded protocol responses.
-- [Engine tests](../tests/test_engine.py): exact wire binding, current authority, typed receipt admission, separate read grants, recovery, stale senders, and SQL failures around sending and observation commits.
+- [Engine tests](../tests/test_engine.py): exact wire binding, current authority, typed receipt admission, separate read grants, recovery, stale senders across provider restart, generated recovery schedules, and SQL failures around sending and observation commits.
 - [Wire](../tests/test_synthetic.py) and [transport](../tests/test_transport.py) tests reject substitutions, ambiguous framing, unsupported contracts, redirects, and proxy overrides.
 - [Inventory scenarios](../tests/test_inventory.py) use real process termination and a resumed old sender. [Supervisor tests](../tests/test_demo_failures.py) cover startup/cleanup failures and interrupted proposal recovery.
 
