@@ -92,7 +92,7 @@ class RunningProvider:
 @pytest.fixture
 def provider(tmp_path):
     @contextmanager
-    def start(*, database=None, profile="permanent", behavior="apply", retention=10):
+    def start(*, database=None, profile="permanent", behavior="apply", retention=10, port=0):
         path = database or tmp_path / "provider.sqlite"
         with (tmp_path / "provider-stderr.log").open("w+") as error_log:
             process = subprocess.Popen(
@@ -102,6 +102,8 @@ def provider(tmp_path):
                     "work_steward.simulator.server",
                     "--database",
                     str(path),
+                    "--port",
+                    str(port),
                     "--profile",
                     profile,
                     "--behavior",
